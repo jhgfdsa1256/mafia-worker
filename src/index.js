@@ -282,6 +282,7 @@ function replayPage(lang, id) {
 <aside class="wing right">
   <h2>보기 설정</h2>
   <label class="opt"><input type="checkbox" id="hide" checked> 직업 숨기기</label>
+  <label class="opt"><input type="checkbox" id="anon" checked> 투표 익명</label>
   <label class="opt"><input type="checkbox" id="night"> 밤챗 보기</label>
   <label class="opt"><input type="checkbox" id="ghost"> 유령챗 보기</label>
   <label class="opt col">시점 빙의
@@ -296,7 +297,9 @@ function replayPage(lang, id) {
 <script>
 var LANG=${JSON.stringify(lang)},ID=${JSON.stringify(id)};
 var DATA=null,USERS=[],NICK2USER=Object.create(null);
-var HIDE=true,VIEW=0,SHOW_NIGHT=false,SHOW_GHOST=false;
+var HIDE=true,ANON=true,VIEW=0,SHOW_NIGHT=false,SHOW_GHOST=false;
+// 누가 누구에게 투표했는지 / 찬성·반대했는지 알려 주는 시스템 메시지
+var VOTE_RE=/(\\d+\\s*님이\\s*\\d+\\s*님에게\\s*투표)|((찬성|반대)하였)/;
 var ANN={},OPEN=null;
 var KNOWN={CHAT:1,MAFIACHAT:1,MEGAPHONE:1,GHOSTCHAT:1,WILL:1};
 // 추리중 아이콘 (숨김 상태이거나 직업을 모를 때 표시)
@@ -391,7 +394,7 @@ function openEditor(slot,idx,mode){
 function chOf(l){return String(l.channel||"CHAT").replace(/[^A-Z0-9_]/g,"")||"CHAT";}
 function isNight(ch){return ch!=="CHAT"&&ch!=="MEGAPHONE"&&ch!=="GHOSTCHAT"&&ch!=="WILL";}
 function isVisible(l){
-  if(l.type==="system")return true;
+  if(l.type==="system")return !(ANON&&VOTE_RE.test(l.message));
   var ch=chOf(l);
   if(ch==="GHOSTCHAT")return SHOW_GHOST;
   if(isNight(ch))return SHOW_NIGHT;
@@ -503,6 +506,10 @@ fetch("/api/replay?id="+ID+"&lang="+LANG).then(function(r){return r.json();}).th
   var hide=document.getElementById("hide");
   hide.checked=true;HIDE=true;
   hide.onchange=function(){HIDE=hide.checked;renderUsers();renderLogs();};
+
+  var anon=document.getElementById("anon");
+  anon.checked=true;ANON=true;
+  anon.onchange=function(){ANON=anon.checked;renderLogs();};
 
   var night=document.getElementById("night");
   night.checked=false;SHOW_NIGHT=false;
