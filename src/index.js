@@ -30,16 +30,23 @@ function html(body, status = 200) {
   });
 }
 
-// ---------- 파서 (이전에 Termux에서 검증한 로직 그대로) ----------
+// ---------- 파서 (이전에 Termux에서 검증한 로직 + 유언 감지) ----------
 
 function normalizeText(text) {
   return String(text ?? "").replace(/\s+/g, " ").trim();
 }
 
-function detectChatChannel(className) {
+// 유언은 아직 실제 리플레이로 구조를 확인하지 못해서,
+// 클래스 이름(will / testament)이나 본문의 "[유언]" 표시로 추정합니다.
+function detectChatChannel(className, text, containerClass) {
   const classes = String(className ?? "").split(/\s+/).filter(Boolean);
   const megaphone = classes.find((t) => t.toUpperCase().includes("MEGAPHONE"));
   if (megaphone) return "MEGAPHONE";
+
+  const allClasses = classes.concat(String(containerClass ?? "").split(/\s+/).filter(Boolean));
+  const willClass = allClasses.find((t) => /(^|[-_])(will|testament)([-_]|$)/i.test(t));
+  if (willClass || /^\s*\[유언\]/.test(String(text ?? ""))) return "WILL";
+
   const channel = classes.find(
     (t) => t.toUpperCase().endsWith("CHAT") && t.toLowerCase() !== "chat-bubble"
   );
@@ -98,7 +105,7 @@ function parseReplayHtml(htmlText) {
         if (!message) return;
         logs.push({
           type: "chat",
-          channel: detectChatChannel($b.attr("class")),
+          channel: detectChatChannel($b.attr("class"), message, $item.attr("class")),
           nickname,
           message,
         });
@@ -106,6 +113,49 @@ function parseReplayHtml(htmlText) {
     });
 
   return { users, winningTeam, logs };
+}
+
+// 구조 확인용: 이 리플레이에서 쓰인 클래스 이름과 "유언"이 들어간 부분의 원본 HTML
+function buildDebug(htmlText) {
+  const $ = cheerio.load(htmlText);
+
+  const bubbleClasses = new Set();
+  $(".chat-bubble").each((_, b) => bubbleClasses.add(($(b).attr("class") || "").trim()));
+
+  const tableChildClasses = new Set();
+  $("section.table")
+    .first()
+    .children()
+    .each((_, c) => tableChildClasses.add(($(c).attr("class") || "").trim()));
+
+  const willClassSamples = [];
+  $("[class]").each((_, el) => {
+    if (willClassSamples.length >= 5) return false;
+    if (/will|testament/i.test($(el).attr("class") || "")) {
+      willClassSamples.push($.html(el).replace(/\s+/g, " ").slice(0, 500));
+    }
+  });
+
+  const seen = new Set();
+  const willTextSamples = [];
+  $("*").each((_, el) => {
+    if (willTextSamples.length >= 8) return false;
+    if (/^(script|style|title)$/i.test(el.name)) return;
+    const $el = $(el);
+    if ($el.children().length) return;
+    if (!/유언/.test($el.text())) return;
+    const sig = ($el.attr("class") || "") + "|" + ($el.parent().attr("class") || "");
+    if (seen.has(sig)) return;
+    seen.add(sig);
+    willTextSamples.push($.html($el.parent()).replace(/\s+/g, " ").slice(0, 600));
+  });
+
+  return {
+    bubbleClasses: [...bubbleClasses],
+    tableChildClasses: [...tableChildClasses],
+    willClassSamples,
+    willTextSamples,
+  };
 }
 
 // ---------- 화면 (HTML) ----------
@@ -137,6 +187,7 @@ button.sec{background:#4d4d4d}
 .opt input[type=checkbox]{width:18px;height:18px;margin:0}
 .opt.col{flex-direction:column;align-items:stretch;gap:4px}
 select{width:100%;padding:7px;font-size:14px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+.hint{font-size:12px;color:var(--muted);line-height:1.4;margin:4px 0 0}
 
 .player{display:flex;align-items:center;gap:12px;padding:7px 0}
 .jobbox{position:relative;width:44px;height:44px;flex:none;background:#222;border-radius:8px;display:flex;align-items:center;justify-content:center}
@@ -149,16 +200,16 @@ select{width:100%;padding:7px;font-size:14px;border-radius:6px;border:1px solid 
 
 .center{min-width:0}
 .log{display:flex;flex-direction:column;gap:8px}
-.sys{background:#1e1e1e;color:#ff5a5a;border-radius:10px;padding:8px 14px;text-align:center;font-size:13px;margin:4px 0}
+.item.cont{margin-top:-5px}
+.sys{background:#1e1e1e;color:#ff5a5a;border-radius:10px;padding:8px 14px;text-align:center;font-size:13px;margin:4px 0;cursor:pointer}
 .row{display:flex;gap:10px;align-items:flex-start}
-.row.cont{margin-top:-5px}
 .row.me{justify-content:flex-end}
 .col{min-width:0;max-width:78%;display:flex;flex-direction:column;align-items:flex-start}
 .jobbox.chat-av,.av-spacer{width:40px;height:40px;flex:none}
 .jobbox.chat-av{border-radius:12px}
 .jobbox.chat-av .qmark{font-size:20px}
 .name{font-size:12px;color:var(--muted);margin:0 0 3px 2px}
-.bubble{padding:8px 12px;border-radius:14px;word-break:break-word;border:1px solid transparent;max-width:100%}
+.bubble{padding:8px 12px;border-radius:14px;word-break:break-word;border:1px solid transparent;max-width:100%;cursor:pointer}
 .bubble.first{border-top-left-radius:4px}
 .row.me .bubble{max-width:78%}
 .row.me .bubble.first{border-top-left-radius:14px;border-top-right-radius:4px}
@@ -169,12 +220,23 @@ select{width:100%;padding:7px;font-size:14px;border-radius:6px;border:1px solid 
 .ch-other{background:#3d3d3d;color:#eee;border-color:#666}
 .tag{display:inline-block;font-size:11px;border:1px solid #888;border-radius:4px;padding:0 5px;margin-right:6px}
 
+.ann{margin:4px 0 0 50px;max-width:78%}
+.ann.me{margin:4px 0 0 auto}
+.ann.center{margin:4px auto 0}
+.note{background:#4a4326;border:1px solid #8a7a2f;color:#f3e9b5;border-radius:8px;padding:6px 10px;font-size:13px;white-space:pre-wrap;word-break:break-word;cursor:pointer}
+.note::before{content:"📝 "}
+.ann textarea{width:100%;padding:8px;font-size:14px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--fg);resize:vertical;font-family:inherit}
+.annbar{display:flex;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap}
+.annbar button{width:auto;padding:6px 14px;font-size:13px}
+.annbar .info{font-size:12px;color:var(--muted)}
+
 @media (max-width:860px){
   .layout{grid-template-columns:1fr}
   .wing{position:static;max-height:none}
   .wing.right{order:1}
   .wing.left{order:2}
   .center{order:3}
+  .ann,.ann.me{max-width:90%}
 }
 `;
 
@@ -220,9 +282,12 @@ function replayPage(lang, id) {
 <aside class="wing right">
   <h2>보기 설정</h2>
   <label class="opt"><input type="checkbox" id="hide" checked> 직업 숨기기</label>
+  <label class="opt"><input type="checkbox" id="night"> 밤챗 보기</label>
+  <label class="opt"><input type="checkbox" id="ghost"> 유령챗 보기</label>
   <label class="opt col">시점 빙의
     <select id="view"><option value="0">없음</option></select>
   </label>
+  <div class="hint">말풍선을 누르면 주석을 달 수 있어요. 주석은 이 브라우저에만 저장돼요.</div>
   <h2 class="mt">참가자</h2>
   <div id="users"></div>
   <div class="win" id="win" hidden></div>
@@ -231,14 +296,26 @@ function replayPage(lang, id) {
 <script>
 var LANG=${JSON.stringify(lang)},ID=${JSON.stringify(id)};
 var DATA=null,USERS=[],NICK2USER=Object.create(null);
-var HIDE=true,VIEW=0;
-var KNOWN={CHAT:1,MAFIACHAT:1,MEGAPHONE:1,GHOSTCHAT:1};
+var HIDE=true,VIEW=0,SHOW_NIGHT=false,SHOW_GHOST=false;
+var ANN={},OPEN=null;
+var KNOWN={CHAT:1,MAFIACHAT:1,MEGAPHONE:1,GHOSTCHAT:1,WILL:1};
 // 추리중 아이콘 (숨김 상태이거나 직업을 모를 때 표시)
 var UNKNOWN_ICON="https://raw.githubusercontent.com/LiQuiDsKR/Mafia42ImageResource/refs/heads/main/images/StrategyThumbnail/08%20%EC%B6%94%EB%A6%AC%20%EC%A4%91.webp";
 
 function el(tag,cls,text){var e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e;}
 
-// 직업 아이콘 (숨김 상태이거나 직업을 모르면 굵은 물음표)
+// ---- 주석 저장 (이 브라우저의 localStorage) ----
+function annKey(){return "m42ann:"+LANG+":"+ID;}
+function loadAnn(){
+  try{var s=localStorage.getItem(annKey());var o=s?JSON.parse(s):{};ANN=(o&&typeof o==="object")?o:{};}
+  catch(e){ANN={};}
+}
+function saveAnn(){
+  try{localStorage.setItem(annKey(),JSON.stringify(ANN));return true;}
+  catch(e){return false;}
+}
+
+// ---- 직업 아이콘 (숨김 상태이거나 직업을 모르면 추리중 이미지) ----
 function makeAvatar(u,extra){
   var box=el("div","jobbox"+(extra?" "+extra:""));
   var job=u&&u.job;
@@ -270,23 +347,95 @@ function renderUsers(){
   });
 }
 
+// ---- 주석 보기/편집 ----
+function renderAnn(slot,idx,editing,mode){
+  slot.textContent="";
+  if(editing){
+    var box=el("div","ann "+mode);
+    var ta=document.createElement("textarea");
+    ta.rows=3;ta.value=ANN[idx]||"";ta.placeholder="이 줄에 대한 주석";
+    var bar=el("div","annbar");
+    var st=el("span","info","");
+    var ok=el("button",null,"저장");
+    var del=el("button","sec","삭제");
+    var no=el("button","sec","취소");
+    ok.onclick=function(){
+      var v=ta.value.trim();
+      if(v){ANN[idx]=v;}else{delete ANN[idx];}
+      var saved=saveAnn();
+      OPEN=null;renderAnn(slot,idx,false,mode);
+      if(!saved)slot.appendChild(el("div","annbar")).appendChild(el("span","info","이 브라우저에는 저장하지 못했어요 (비공개 모드 등)."));
+    };
+    del.onclick=function(){delete ANN[idx];saveAnn();OPEN=null;renderAnn(slot,idx,false,mode);};
+    no.onclick=function(){OPEN=null;renderAnn(slot,idx,false,mode);};
+    bar.appendChild(ok);bar.appendChild(del);bar.appendChild(no);bar.appendChild(st);
+    box.appendChild(ta);box.appendChild(bar);
+    slot.appendChild(box);
+    ta.focus();
+  }else if(ANN[idx]){
+    var n=el("div","ann "+mode);
+    var note=el("div","note",ANN[idx]);
+    note.onclick=function(){openEditor(slot,idx,mode);};
+    n.appendChild(note);
+    slot.appendChild(n);
+  }
+}
+function openEditor(slot,idx,mode){
+  if(OPEN&&OPEN.slot===slot)return;
+  if(OPEN)renderAnn(OPEN.slot,OPEN.idx,false,OPEN.mode);
+  OPEN={slot:slot,idx:idx,mode:mode};
+  renderAnn(slot,idx,true,mode);
+}
+
+// ---- 채팅 보여주기 ----
+function chOf(l){return String(l.channel||"CHAT").replace(/[^A-Z0-9_]/g,"")||"CHAT";}
+function isNight(ch){return ch!=="CHAT"&&ch!=="MEGAPHONE"&&ch!=="GHOSTCHAT"&&ch!=="WILL";}
+function isVisible(l){
+  if(l.type==="system")return true;
+  var ch=chOf(l);
+  if(ch==="GHOSTCHAT")return SHOW_GHOST;
+  if(isNight(ch))return SHOW_NIGHT;
+  return true;
+}
+
 function renderLogs(){
   var log=document.getElementById("log");log.textContent="";
+  OPEN=null;
   var prevKey=null;
   var me=VIEW&&USERS[VIEW-1]?USERS[VIEW-1].nickname:null;
-  DATA.logs.forEach(function(l){
-    if(l.type==="system"){log.appendChild(el("div","sys",l.message));prevKey=null;return;}
-    var ch=String(l.channel||"CHAT").replace(/[^A-Z0-9_]/g,"");
+  DATA.logs.forEach(function(l,i){
+    if(!isVisible(l))return;
+    var item=el("div","item");
+    var slot=el("div","annslot");
+
+    if(l.type==="system"){
+      var sys=el("div","sys",l.message);
+      sys.onclick=function(){openEditor(slot,i,"center");};
+      item.appendChild(sys);
+      item.appendChild(slot);
+      renderAnn(slot,i,false,"center");
+      log.appendChild(item);
+      prevKey=null;
+      return;
+    }
+
+    var ch=chOf(l);
     var known=!!KNOWN[ch];
     var key=(l.nickname||"")+"|"+ch;
     var first=key!==prevKey;prevKey=key;
     var mine=!!me&&l.nickname===me;
 
-    var bubble=el("div","bubble "+(known?"ch-"+ch:"ch-other")+(first?" first":""));
-    if(!known)bubble.appendChild(el("span","tag",ch||"?"));
-    bubble.appendChild(document.createTextNode(l.message));
+    var text=l.message;
+    if(ch==="WILL"&&!/^\\s*\\[유언\\]/.test(text))text='[유언] "'+text+'"';
 
-    var row=el("div","row"+(mine?" me":"")+(first?"":" cont"));
+    var klass=ch==="WILL"?"ch-CHAT":(known?"ch-"+ch:"ch-other");
+    var bubble=el("div","bubble "+klass+(first?" first":""));
+    if(!known)bubble.appendChild(el("span","tag",ch||"?"));
+    bubble.appendChild(document.createTextNode(text));
+    var mode=mine?"me":"other";
+    bubble.onclick=function(){openEditor(slot,i,mode);};
+
+    var row=el("div","row"+(mine?" me":""));
     if(mine){
       row.appendChild(bubble);
     }else{
@@ -296,7 +445,11 @@ function renderLogs(){
       col.appendChild(bubble);
       row.appendChild(col);
     }
-    log.appendChild(row);
+    item.className="item"+(first?"":" cont");
+    item.appendChild(row);
+    item.appendChild(slot);
+    renderAnn(slot,i,false,mode);
+    log.appendChild(item);
   });
 }
 
@@ -313,11 +466,15 @@ function copyText(t){
 }
 
 function buildJsonTools(){
-  var text=JSON.stringify(DATA,null,2);
+  var notes=Object.keys(ANN).map(Number).sort(function(a,b){return a-b;}).map(function(i){
+    var l=DATA.logs[i]||{};
+    return {index:i,nickname:l.nickname||null,message:l.message||null,note:ANN[i]};
+  });
+  var text=JSON.stringify(Object.assign({},DATA,{annotations:notes}),null,2);
   var out=document.getElementById("toolsOut");
   out.textContent="";
   var wrap=el("div","tools-out");
-  wrap.appendChild(el("div","info","JSON 준비됨 ("+Math.max(1,Math.round(text.length/1024))+" KB)"));
+  wrap.appendChild(el("div","info","JSON 준비됨 ("+Math.max(1,Math.round(text.length/1024))+" KB, 주석 "+notes.length+"개 포함)"));
   var dl=el("button",null,"다운로드");
   dl.onclick=function(){
     var blob=new Blob([text],{type:"application/json"});
@@ -341,10 +498,19 @@ fetch("/api/replay?id="+ID+"&lang="+LANG).then(function(r){return r.json();}).th
   if(d.error){log.appendChild(el("div","sys",d.error));return;}
   DATA=d;USERS=d.users||[];
   USERS.forEach(function(u){if(u.nickname&&!NICK2USER[u.nickname])NICK2USER[u.nickname]=u;});
+  loadAnn();
 
   var hide=document.getElementById("hide");
   hide.checked=true;HIDE=true;
   hide.onchange=function(){HIDE=hide.checked;renderUsers();renderLogs();};
+
+  var night=document.getElementById("night");
+  night.checked=false;SHOW_NIGHT=false;
+  night.onchange=function(){SHOW_NIGHT=night.checked;renderLogs();};
+
+  var ghost=document.getElementById("ghost");
+  ghost.checked=false;SHOW_GHOST=false;
+  ghost.onchange=function(){SHOW_GHOST=ghost.checked;renderLogs();};
 
   var sel=document.getElementById("view");
   USERS.forEach(function(u){
@@ -409,7 +575,13 @@ async function handleApi(url) {
     );
   }
 
-  const parsed = parseReplayHtml(await upstream.text());
+  const htmlText = await upstream.text();
+
+  if (params.get("debug") === "1") {
+    return json(buildDebug(htmlText), 200, { "Cache-Control": "no-store" });
+  }
+
+  const parsed = parseReplayHtml(htmlText);
   if (parsed.logs.length === 0 && parsed.users.length === 0) {
     return json(
       { error: "리플레이 내용을 찾지 못했습니다. (만료되었거나 형식이 다릅니다)" },
