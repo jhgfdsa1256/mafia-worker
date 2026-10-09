@@ -128,22 +128,40 @@ button.sec{background:#4d4d4d}
 .layout{display:grid;grid-template-columns:190px minmax(0,1fr) 230px;gap:16px;max-width:1120px;margin:0 auto;padding:16px}
 .wing{align-self:start;position:sticky;top:16px;max-height:calc(100vh - 32px);overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
 .wing h2{font-size:13px;margin:0 0 10px;color:var(--muted);font-weight:600}
+.wing h2.mt{margin-top:16px}
 .back{display:block;font-size:14px;margin-bottom:14px}
 .tools-out{margin-top:12px;display:flex;flex-direction:column;gap:8px}
 .tools-out .info{font-size:12px;color:var(--muted)}
+
+.opt{display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:10px}
+.opt input[type=checkbox]{width:18px;height:18px;margin:0}
+.opt.col{flex-direction:column;align-items:stretch;gap:4px}
+select{width:100%;padding:7px;font-size:14px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+
 .player{display:flex;align-items:center;gap:12px;padding:7px 0}
 .jobbox{position:relative;width:44px;height:44px;flex:none;background:#222;border-radius:8px;display:flex;align-items:center;justify-content:center}
-.jobbox img{width:100%;height:100%;object-fit:contain;border-radius:8px}
+.jobbox img{width:100%;height:100%;object-fit:contain;border-radius:inherit}
+.qmark{font-weight:800;font-size:22px;color:#ddd;line-height:1}
 .jobfb{font-size:10px;color:var(--muted);text-align:center;word-break:break-all;padding:2px;line-height:1.2}
 .badge{position:absolute;top:-6px;left:-6px;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:#000;border:1px solid #777;color:#fff;font-size:11px;line-height:16px;text-align:center;font-weight:700}
 .pname{min-width:0;word-break:break-all;font-size:14px}
 .win{margin-top:12px;padding-top:12px;border-top:1px solid var(--line);font-size:14px;color:var(--muted)}
 
 .center{min-width:0}
-.log{display:flex;flex-direction:column;gap:6px}
-.sys{text-align:center;color:var(--muted);font-size:13px;padding:4px 0}
-.msg{padding:7px 11px;border-radius:8px;word-break:break-word;border:1px solid transparent}
-.msg .nick{font-weight:700;margin-right:6px}
+.log{display:flex;flex-direction:column;gap:8px}
+.sys{background:#1e1e1e;color:#ff5a5a;border-radius:10px;padding:8px 14px;text-align:center;font-size:13px;margin:4px 0}
+.row{display:flex;gap:10px;align-items:flex-start}
+.row.cont{margin-top:-5px}
+.row.me{justify-content:flex-end}
+.col{min-width:0;max-width:78%;display:flex;flex-direction:column;align-items:flex-start}
+.jobbox.chat-av,.av-spacer{width:40px;height:40px;flex:none}
+.jobbox.chat-av{border-radius:12px}
+.jobbox.chat-av .qmark{font-size:20px}
+.name{font-size:12px;color:var(--muted);margin:0 0 3px 2px}
+.bubble{padding:8px 12px;border-radius:14px;word-break:break-word;border:1px solid transparent;max-width:100%}
+.bubble.first{border-top-left-radius:4px}
+.row.me .bubble{max-width:78%}
+.row.me .bubble.first{border-top-left-radius:14px;border-top-right-radius:4px}
 .ch-CHAT{background:#fff;color:#000}
 .ch-MAFIACHAT{background:#000;color:#ff3030;border-color:#ff3030}
 .ch-MEGAPHONE{background:rgba(0,0,0,.55);color:#fff;border-color:#fff}
@@ -200,32 +218,45 @@ function replayPage(lang, id) {
 </aside>
 <main class="center"><div class="log" id="log"><div class="sys">불러오는 중...</div></div></main>
 <aside class="wing right">
-  <h2>참가자</h2>
+  <h2>보기 설정</h2>
+  <label class="opt"><input type="checkbox" id="hide" checked> 직업 숨기기</label>
+  <label class="opt col">시점 빙의
+    <select id="view"><option value="0">없음</option></select>
+  </label>
+  <h2 class="mt">참가자</h2>
   <div id="users"></div>
   <div class="win" id="win" hidden></div>
 </aside>
 </div>
 <script>
 var LANG=${JSON.stringify(lang)},ID=${JSON.stringify(id)};
-var DATA=null;
+var DATA=null,USERS=[],NICK2USER=Object.create(null);
+var HIDE=true,VIEW=0;
 var KNOWN={CHAT:1,MAFIACHAT:1,MEGAPHONE:1,GHOSTCHAT:1};
 
 function el(tag,cls,text){var e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e;}
 
-function renderUsers(users){
-  var box=document.getElementById("users");
-  users.forEach(function(u){
+// 직업 아이콘 (숨김 상태이거나 직업을 모르면 굵은 물음표)
+function makeAvatar(u,extra){
+  var box=el("div","jobbox"+(extra?" "+extra:""));
+  var job=u&&u.job;
+  if(HIDE||!job||!/^[a-z0-9_]+$/.test(job)){
+    box.appendChild(el("span","qmark","?"));
+  }else{
+    var img=document.createElement("img");
+    img.alt=job;
+    img.src="https://mafia42.com/chat/jobs/jobthumb_"+job+".png";
+    img.onerror=function(){img.remove();box.appendChild(el("span","jobfb",job));};
+    box.appendChild(img);
+  }
+  return box;
+}
+
+function renderUsers(){
+  var box=document.getElementById("users");box.textContent="";
+  USERS.forEach(function(u){
     var row=el("div","player");
-    var icon=el("div","jobbox");
-    if(u.job&&/^[a-z0-9_]+$/.test(u.job)){
-      var img=document.createElement("img");
-      img.alt=u.job;
-      img.src="https://mafia42.com/chat/jobs/jobthumb_"+u.job+".png";
-      img.onerror=function(){img.remove();icon.appendChild(el("span","jobfb",u.job));};
-      icon.appendChild(img);
-    }else{
-      icon.appendChild(el("span","jobfb","?"));
-    }
+    var icon=makeAvatar(u,"");
     icon.appendChild(el("span","badge",String(u.number)));
     row.appendChild(icon);
     row.appendChild(el("div","pname",u.nickname||"?"));
@@ -233,17 +264,33 @@ function renderUsers(users){
   });
 }
 
-function renderLogs(logs){
-  var log=document.getElementById("log");
-  logs.forEach(function(l){
-    if(l.type==="system"){log.appendChild(el("div","sys",l.message));return;}
+function renderLogs(){
+  var log=document.getElementById("log");log.textContent="";
+  var prevKey=null;
+  var me=VIEW&&USERS[VIEW-1]?USERS[VIEW-1].nickname:null;
+  DATA.logs.forEach(function(l){
+    if(l.type==="system"){log.appendChild(el("div","sys",l.message));prevKey=null;return;}
     var ch=String(l.channel||"CHAT").replace(/[^A-Z0-9_]/g,"");
     var known=!!KNOWN[ch];
-    var m=el("div","msg "+(known?"ch-"+ch:"ch-other"));
-    if(!known)m.appendChild(el("span","tag",ch||"?"));
-    m.appendChild(el("span","nick",l.nickname||"?"));
-    m.appendChild(document.createTextNode(l.message));
-    log.appendChild(m);
+    var key=(l.nickname||"")+"|"+ch;
+    var first=key!==prevKey;prevKey=key;
+    var mine=!!me&&l.nickname===me;
+
+    var bubble=el("div","bubble "+(known?"ch-"+ch:"ch-other")+(first?" first":""));
+    if(!known)bubble.appendChild(el("span","tag",ch||"?"));
+    bubble.appendChild(document.createTextNode(l.message));
+
+    var row=el("div","row"+(mine?" me":"")+(first?"":" cont"));
+    if(mine){
+      row.appendChild(bubble);
+    }else{
+      row.appendChild(first?makeAvatar(NICK2USER[l.nickname],"chat-av"):el("div","av-spacer"));
+      var col=el("div","col");
+      if(first)col.appendChild(el("div","name",l.nickname||"?"));
+      col.appendChild(bubble);
+      row.appendChild(col);
+    }
+    log.appendChild(row);
   });
 }
 
@@ -286,10 +333,26 @@ function buildJsonTools(){
 fetch("/api/replay?id="+ID+"&lang="+LANG).then(function(r){return r.json();}).then(function(d){
   var log=document.getElementById("log");log.textContent="";
   if(d.error){log.appendChild(el("div","sys",d.error));return;}
-  DATA=d;
-  renderUsers(d.users);
+  DATA=d;USERS=d.users||[];
+  USERS.forEach(function(u){if(u.nickname&&!NICK2USER[u.nickname])NICK2USER[u.nickname]=u;});
+
+  var hide=document.getElementById("hide");
+  hide.checked=true;HIDE=true;
+  hide.onchange=function(){HIDE=hide.checked;renderUsers();renderLogs();};
+
+  var sel=document.getElementById("view");
+  USERS.forEach(function(u){
+    var o=document.createElement("option");
+    o.value=String(u.number);o.textContent=u.number+". "+(u.nickname||"?");
+    sel.appendChild(o);
+  });
+  sel.value="0";VIEW=0;
+  sel.onchange=function(){VIEW=Number(sel.value)||0;renderLogs();};
+
   if(d.winningTeam){var w=document.getElementById("win");w.hidden=false;w.textContent="결과: "+d.winningTeam;}
-  renderLogs(d.logs);
+  renderUsers();
+  renderLogs();
+
   var b=document.getElementById("extract");
   b.disabled=false;
   b.onclick=buildJsonTools;
