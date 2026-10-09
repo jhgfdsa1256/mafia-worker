@@ -111,27 +111,53 @@ function parseReplayHtml(htmlText) {
 // ---------- 화면 (HTML) ----------
 
 const STYLE = `
-:root{--bg:#f6f6f4;--fg:#1c1c1a;--muted:#6b6b66;--card:#fff;--line:#e2e2dd;--accent:#2f5fd0}
-@media (prefers-color-scheme:dark){:root{--bg:#161615;--fg:#ecece8;--muted:#9a9a93;--card:#222220;--line:#34342f;--accent:#7aa2ff}}
+:root{--bg:#2b2b2b;--fg:#ececec;--muted:#a8a8a8;--card:#363636;--line:#4d4d4d;--accent:#4a7de8}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,"Noto Sans KR",sans-serif}
+a{color:#8fb0ff}
 .wrap{max-width:720px;margin:0 auto;padding:20px 16px 48px}
 h1{font-size:22px;margin:0 0 4px}
 .sub{color:var(--muted);margin:0 0 20px;font-size:14px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
 input[type=text]{width:100%;padding:12px;font-size:16px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg)}
-button{margin-top:10px;width:100%;padding:12px;font-size:16px;border:0;border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}
-.err{color:#c0392b;font-size:14px;margin-top:8px;min-height:1em}
-.chips{display:flex;flex-wrap:wrap;gap:8px}
-.chip{border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-size:14px}
-.chip b{color:var(--muted);font-weight:600;margin-right:6px}
-.win{margin-top:12px;font-size:14px;color:var(--muted)}
+button{width:100%;padding:11px;font-size:15px;border:0;border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}
+button.sec{background:#4d4d4d}
+.card button{margin-top:10px}
+.err{color:#ff7b6b;font-size:14px;margin-top:8px;min-height:1em}
+
+.layout{display:grid;grid-template-columns:190px minmax(0,1fr) 230px;gap:16px;max-width:1120px;margin:0 auto;padding:16px}
+.wing{align-self:start;position:sticky;top:16px;max-height:calc(100vh - 32px);overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+.wing h2{font-size:13px;margin:0 0 10px;color:var(--muted);font-weight:600}
+.back{display:block;font-size:14px;margin-bottom:14px}
+.tools-out{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+.tools-out .info{font-size:12px;color:var(--muted)}
+.player{display:flex;align-items:center;gap:12px;padding:7px 0}
+.jobbox{position:relative;width:44px;height:44px;flex:none;background:#222;border-radius:8px;display:flex;align-items:center;justify-content:center}
+.jobbox img{width:100%;height:100%;object-fit:contain;border-radius:8px}
+.jobfb{font-size:10px;color:var(--muted);text-align:center;word-break:break-all;padding:2px;line-height:1.2}
+.badge{position:absolute;top:-6px;left:-6px;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:#000;border:1px solid #777;color:#fff;font-size:11px;line-height:16px;text-align:center;font-weight:700}
+.pname{min-width:0;word-break:break-all;font-size:14px}
+.win{margin-top:12px;padding-top:12px;border-top:1px solid var(--line);font-size:14px;color:var(--muted)}
+
+.center{min-width:0}
 .log{display:flex;flex-direction:column;gap:6px}
 .sys{text-align:center;color:var(--muted);font-size:13px;padding:4px 0}
-.msg{padding:6px 10px;border-radius:8px;background:var(--bg);word-break:break-word}
+.msg{padding:7px 11px;border-radius:8px;word-break:break-word;border:1px solid transparent}
 .msg .nick{font-weight:700;margin-right:6px}
-.tag{display:inline-block;font-size:11px;border:1px solid var(--line);border-radius:4px;padding:0 5px;margin-right:6px;color:var(--muted)}
-a{color:var(--accent)}
+.ch-CHAT{background:#fff;color:#000}
+.ch-MAFIACHAT{background:#000;color:#ff3030;border-color:#ff3030}
+.ch-MEGAPHONE{background:rgba(0,0,0,.55);color:#fff;border-color:#fff}
+.ch-GHOSTCHAT{background:#7a7a7a;color:#fff;border-color:#9a9a9a}
+.ch-other{background:#3d3d3d;color:#eee;border-color:#666}
+.tag{display:inline-block;font-size:11px;border:1px solid #888;border-radius:4px;padding:0 5px;margin-right:6px}
+
+@media (max-width:860px){
+  .layout{grid-template-columns:1fr}
+  .wing{position:static;max-height:none}
+  .wing.right{order:1}
+  .wing.left{order:2}
+  .center{order:3}
+}
 `;
 
 const HEAD = (title) =>
@@ -165,32 +191,112 @@ document.getElementById("q").addEventListener("keydown",function(e){if(e.key==="
 function replayPage(lang, id) {
   return (
     HEAD("리플레이 · 마피아42 스터디") +
-    `<body><div class="wrap">
-<p class="sub"><a href="/">← 처음으로</a></p>
-<div class="card"><div class="chips" id="users"></div><div class="win" id="win"></div></div>
-<div class="card"><div class="log" id="log">불러오는 중...</div></div>
+    `<body><div class="layout">
+<aside class="wing left">
+  <a class="back" href="/">← 처음으로</a>
+  <h2>도구</h2>
+  <button id="extract" disabled>JSON 추출하기</button>
+  <div id="toolsOut"></div>
+</aside>
+<main class="center"><div class="log" id="log"><div class="sys">불러오는 중...</div></div></main>
+<aside class="wing right">
+  <h2>참가자</h2>
+  <div id="users"></div>
+  <div class="win" id="win" hidden></div>
+</aside>
 </div>
 <script>
 var LANG=${JSON.stringify(lang)},ID=${JSON.stringify(id)};
+var DATA=null;
+var KNOWN={CHAT:1,MAFIACHAT:1,MEGAPHONE:1,GHOSTCHAT:1};
+
 function el(tag,cls,text){var e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e;}
-fetch("/api/replay?id="+ID+"&lang="+LANG).then(function(r){return r.json();}).then(function(d){
-  var log=document.getElementById("log");log.textContent="";
-  if(d.error){log.appendChild(el("div","err",d.error));return;}
-  var users=document.getElementById("users");
-  d.users.forEach(function(u){
-    var c=el("span","chip");c.appendChild(el("b",null,String(u.number)));
-    c.appendChild(document.createTextNode(u.nickname||"?"));users.appendChild(c);
+
+function renderUsers(users){
+  var box=document.getElementById("users");
+  users.forEach(function(u){
+    var row=el("div","player");
+    var icon=el("div","jobbox");
+    if(u.job&&/^[a-z0-9_]+$/.test(u.job)){
+      var img=document.createElement("img");
+      img.alt=u.job;
+      img.src="https://mafia42.com/chat/jobs/jobthumb_"+u.job+".png";
+      img.onerror=function(){img.remove();icon.appendChild(el("span","jobfb",u.job));};
+      icon.appendChild(img);
+    }else{
+      icon.appendChild(el("span","jobfb","?"));
+    }
+    icon.appendChild(el("span","badge",String(u.number)));
+    row.appendChild(icon);
+    row.appendChild(el("div","pname",u.nickname||"?"));
+    box.appendChild(row);
   });
-  if(d.winningTeam)document.getElementById("win").textContent="결과: "+d.winningTeam;
-  d.logs.forEach(function(l){
+}
+
+function renderLogs(logs){
+  var log=document.getElementById("log");
+  logs.forEach(function(l){
     if(l.type==="system"){log.appendChild(el("div","sys",l.message));return;}
-    var m=el("div","msg");
-    if(l.channel&&l.channel!=="CHAT")m.appendChild(el("span","tag",l.channel));
+    var ch=String(l.channel||"CHAT").replace(/[^A-Z0-9_]/g,"");
+    var known=!!KNOWN[ch];
+    var m=el("div","msg "+(known?"ch-"+ch:"ch-other"));
+    if(!known)m.appendChild(el("span","tag",ch||"?"));
     m.appendChild(el("span","nick",l.nickname||"?"));
     m.appendChild(document.createTextNode(l.message));
     log.appendChild(m);
   });
-}).catch(function(){document.getElementById("log").textContent="불러오지 못했어요.";});
+}
+
+function copyText(t){
+  if(navigator.clipboard&&navigator.clipboard.writeText){return navigator.clipboard.writeText(t);}
+  return new Promise(function(res,rej){
+    var ta=document.createElement("textarea");
+    ta.value=t;ta.style.position="fixed";ta.style.opacity="0";
+    document.body.appendChild(ta);ta.select();
+    var ok=false;try{ok=document.execCommand("copy");}catch(e){}
+    document.body.removeChild(ta);
+    ok?res():rej();
+  });
+}
+
+function buildJsonTools(){
+  var text=JSON.stringify(DATA,null,2);
+  var out=document.getElementById("toolsOut");
+  out.textContent="";
+  var wrap=el("div","tools-out");
+  wrap.appendChild(el("div","info","JSON 준비됨 ("+Math.max(1,Math.round(text.length/1024))+" KB)"));
+  var dl=el("button",null,"다운로드");
+  dl.onclick=function(){
+    var blob=new Blob([text],{type:"application/json"});
+    var a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download="mafia42_"+ID+".json";
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
+  };
+  var cp=el("button","sec","복사");
+  var st=el("div","info","");
+  cp.onclick=function(){
+    copyText(text).then(function(){st.textContent="복사했어요.";},function(){st.textContent="복사하지 못했어요. 다운로드를 이용해 주세요.";});
+  };
+  wrap.appendChild(dl);wrap.appendChild(cp);wrap.appendChild(st);
+  out.appendChild(wrap);
+}
+
+fetch("/api/replay?id="+ID+"&lang="+LANG).then(function(r){return r.json();}).then(function(d){
+  var log=document.getElementById("log");log.textContent="";
+  if(d.error){log.appendChild(el("div","sys",d.error));return;}
+  DATA=d;
+  renderUsers(d.users);
+  if(d.winningTeam){var w=document.getElementById("win");w.hidden=false;w.textContent="결과: "+d.winningTeam;}
+  renderLogs(d.logs);
+  var b=document.getElementById("extract");
+  b.disabled=false;
+  b.onclick=buildJsonTools;
+}).catch(function(){
+  var log=document.getElementById("log");log.textContent="";
+  log.appendChild(el("div","sys","불러오지 못했어요."));
+});
 </script></body></html>`
   );
 }
@@ -262,6 +368,10 @@ export default {
 
     if (url.pathname === "/") return html(HOME_PAGE);
 
-    return html(HEAD("없는 페이지") + `<body><div class="wrap"><p>없는 페이지예요. <a href="/">처음으로</a></p></div></body></html>`, 404);
+    return html(
+      HEAD("없는 페이지") +
+        `<body><div class="wrap"><p>없는 페이지예요. <a href="/">처음으로</a></p></div></body></html>`,
+      404
+    );
   },
 };
