@@ -635,9 +635,9 @@ function renderLogs(){
     if(l.type==="letter"){
       var lt=el("div","letter");
       var hd=el("div","lhead");
-      hd.appendChild(el("span","lfrom",nameWithPick(l.from)));
+      hd.appendChild(el("span","lfrom","From. "+nameWithPick(l.from)));
       hd.appendChild(el("span","ltitle","밀서"));
-      hd.appendChild(el("span","lto",nameWithPick(l.to)));
+      hd.appendChild(el("span","lto","To. "+nameWithPick(l.to)));
       lt.appendChild(hd);
       lt.appendChild(el("div","lmsg",l.message));
       lt.onclick=function(){openEditor(slot,i,"center");};
@@ -707,6 +707,8 @@ function buildJsonTools(){
       index:i,
       kind:m?"vote_result":"line",
       nickname:m?null:(l.nickname||null),
+      from:m?null:(l.from||null),
+      to:m?null:(l.to||null),
       message:m?"[투표 결과]":(l.message||null),
       note:ANN[k]
     };
