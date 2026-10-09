@@ -220,6 +220,14 @@ select{width:100%;padding:7px;font-size:14px;border-radius:6px;border:1px solid 
 .ch-other{background:#3d3d3d;color:#eee;border-color:#666}
 .tag{display:inline-block;font-size:11px;border:1px solid #888;border-radius:4px;padding:0 5px;margin-right:6px}
 
+.tally{background:#1e1e1e;border-radius:10px;padding:10px 14px;margin:4px auto;max-width:420px;cursor:pointer}
+.tally .thead{font-size:12px;color:var(--muted);margin-bottom:6px}
+.trow{display:flex;align-items:center;gap:10px;padding:4px 0}
+.jobbox.tally-av{width:34px;height:34px;border-radius:10px}
+.jobbox.tally-av .qmark{font-size:18px}
+.tname{flex:1;min-width:0;text-align:left;word-break:break-all;font-size:14px}
+.tcnt{font-weight:700;color:#ff5a5a;white-space:nowrap}
+
 .ann{margin:4px 0 0 50px;max-width:78%}
 .ann.me{margin:4px 0 0 auto}
 .ann.center{margin:4px auto 0}
@@ -300,6 +308,7 @@ var DATA=null,USERS=[],NICK2USER=Object.create(null);
 var HIDE=true,ANON=true,VIEW=0,SHOW_NIGHT=false,SHOW_GHOST=false;
 // 누가 누구에게 투표했는지 / 찬성·반대했는지 알려 주는 시스템 메시지
 var VOTE_RE=/(\\d+\\s*님이\\s*\\d+\\s*님에게\\s*투표)|((찬성|반대)하였)/;
+var VOTE_LINE=/^\\s*(\\d+)\\s*님이\\s*(\\d+)\\s*님에게\\s*투표하였습니다/;
 var ANN={},OPEN=null;
 var KNOWN={CHAT:1,MAFIACHAT:1,MEGAPHONE:1,GHOSTCHAT:1,WILL:1};
 // 추리중 아이콘 (숨김 상태이거나 직업을 모를 때 표시)
@@ -401,13 +410,50 @@ function isVisible(l){
   return true;
 }
 
+// ---- 투표 익명: 득표 현황 카드 ----
+function newTally(idx){
+  var item=el("div","item");
+  var card=el("div","tally");
+  var slot=el("div","annslot");
+  card.onclick=function(){openEditor(slot,idx,"center");};
+  item.appendChild(card);
+  item.appendChild(slot);
+  renderAnn(slot,idx,false,"center");
+  return {item:item,card:card,counts:{}};
+}
+function fillTally(g){
+  g.card.textContent="";
+  g.card.appendChild(el("div","thead","투표 결과"));
+  var rows=Object.keys(g.counts).map(function(k){return {n:Number(k),c:g.counts[k]};});
+  rows.sort(function(a,b){return b.c-a.c||a.n-b.n;});
+  rows.forEach(function(r){
+    var u=USERS[r.n-1];
+    var row=el("div","trow");
+    row.appendChild(makeAvatar(u,"tally-av"));
+    row.appendChild(el("div","tname",(u&&u.nickname)||(r.n+"번")));
+    row.appendChild(el("div","tcnt",r.c+"표"));
+    g.card.appendChild(row);
+  });
+}
+
 function renderLogs(){
   var log=document.getElementById("log");log.textContent="";
   OPEN=null;
   var prevKey=null;
+  var group=null;
   var me=VIEW&&USERS[VIEW-1]?USERS[VIEW-1].nickname:null;
   DATA.logs.forEach(function(l,i){
+    // 투표 익명: 연속된 "N님이 M님에게 투표" 메시지를 득표 현황 카드 하나로 바꿈
+    var vm=(ANON&&l.type==="system")?VOTE_LINE.exec(l.message):null;
+    if(vm){
+      if(!group){group=newTally(i);log.appendChild(group.item);}
+      group.counts[vm[2]]=(group.counts[vm[2]]||0)+1;
+      fillTally(group);
+      prevKey=null;
+      return;
+    }
     if(!isVisible(l))return;
+    group=null;
     var item=el("div","item");
     var slot=el("div","annslot");
 
