@@ -262,7 +262,9 @@ const HOME_PAGE =
 <input id="q" type="text" placeholder="https://mafia42.com/history/kr/... 또는 방 코드" autocomplete="off">
 <button id="go">열기</button>
 <div class="err" id="err"></div>
-</div></div>
+</div>
+<div class="card" id="acct"><div class="info">확인 중...</div></div>
+</div>
 <script>
 function go(){
   var v=document.getElementById("q").value.trim();
@@ -272,6 +274,37 @@ function go(){
   var lang=l?l[1].toLowerCase():"kr";
   location.href="/replay/"+lang+"/"+m[0].toLowerCase();
 }
+function esc(t){return String(t);}
+function mk(tag,cls,text){var e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e;}
+function acct(){
+  var box=document.getElementById("acct");
+  fetch("/api/me").then(function(r){return r.json();}).then(function(me){
+    box.textContent="";
+    if(!me.configured){box.style.display="none";return;}
+    if(!me.loggedIn){
+      var a=mk("a","back","구글로 로그인하면 보관함과 주석을 계정에 저장할 수 있어요");
+      a.href="/auth/login?next=/";box.appendChild(a);return;
+    }
+    box.appendChild(mk("div","pname",me.name+" 님의 보관함"));
+    var lo=mk("button","sec","로그아웃");
+    lo.onclick=function(){fetch("/auth/logout",{method:"POST"}).then(function(){location.reload();});};
+    box.appendChild(lo);
+    var list=mk("div",null,"");box.appendChild(list);
+    fetch("/api/library").then(function(r){return r.json();}).then(function(d){
+      var items=d.items||[];
+      if(!items.length){list.appendChild(mk("div","info","아직 비어 있어요. 리플레이 화면에서 보관함에 저장해 보세요."));return;}
+      items.forEach(function(it){
+        var row=mk("div","player","");
+        var a=mk("a","pname",it.lang+" · "+it.id.slice(0,8)+"…");
+        a.href="/replay/"+it.lang+"/"+it.id;
+        var x=mk("button","sec","빼기");
+        x.onclick=function(){fetch("/api/library/"+it.lang+"/"+it.id,{method:"DELETE"}).then(function(r){if(r.ok)row.remove();});};
+        row.appendChild(a);row.appendChild(x);list.appendChild(row);
+      });
+    });
+  }).catch(function(){box.style.display="none";});
+}
+acct();
 document.getElementById("go").onclick=go;
 document.getElementById("q").addEventListener("keydown",function(e){if(e.key==="Enter")go();});
 </script></body></html>`;
@@ -282,7 +315,11 @@ function replayPage(lang, id) {
     `<body><div class="layout">
 <aside class="wing left">
   <a class="back" href="/">← 처음으로</a>
-  <h2>도구</h2>
+  <h2>계정</h2>
+  <div id="auth" class="info">확인 중...</div>
+  <button id="libbtn" class="sec" hidden>보관함에 저장</button>
+  <button id="import" class="sec" hidden>이 브라우저 주석 가져오기</button>
+  <h2 class="mt">도구</h2>
   <button id="extract" disabled>JSON 추출하기</button>
   <div id="toolsOut"></div>
 </aside>
@@ -296,7 +333,7 @@ function replayPage(lang, id) {
   <label class="opt col">시점 빙의
     <select id="view"><option value="0">없음</option></select>
   </label>
-  <div class="hint">말풍선을 누르면 주석을 달 수 있어요. 주석은 이 브라우저에만 저장돼요.</div>
+  <div class="hint" id="hint">말풍선을 누르면 주석을 달 수 있어요. 주석은 이 브라우저에만 저장돼요.</div>
   <h2 class="mt">참가자</h2>
   <div id="users"></div>
   <div class="win" id="win" hidden></div>
@@ -322,9 +359,64 @@ function loadAnn(){
   try{var s=localStorage.getItem(annKey());var o=s?JSON.parse(s):{};ANN=(o&&typeof o==="object")?o:{};}
   catch(e){ANN={};}
 }
-function saveAnn(){
+function saveLocal(){
   try{localStorage.setItem(annKey(),JSON.stringify(ANN));return true;}
   catch(e){return false;}
+}
+// 로그인했으면 서버(계정)에, 아니면 이 브라우저에 저장. 항상 Promise<boolean>
+var ME={configured:false,loggedIn:false,name:null};
+function persistAnn(key){
+  if(!ME.loggedIn)return Promise.resolve(saveLocal());
+  return fetch("/api/annotations/"+LANG+"/"+ID,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({key:String(key),note:ANN[key]||""})})
+    .then(function(r){return r.ok;},function(){return false;});
+}
+function loadAnnServer(){
+  return fetch("/api/annotations/"+LANG+"/"+ID).then(function(r){return r.ok?r.json():null;}).then(function(d){
+    if(d&&d.notes){ANN=d.notes;return true;}return false;
+  },function(){return false;});
+}
+function localNotes(){
+  try{var s=localStorage.getItem(annKey());var o=s?JSON.parse(s):{};return(o&&typeof o==="object")?o:{};}catch(e){return {};}
+}
+function setupAuth(){
+  var box=document.getElementById("auth");box.textContent="";
+  var lb=document.getElementById("libbtn"),im=document.getElementById("import"),hint=document.getElementById("hint");
+  lb.hidden=true;im.hidden=true;
+  if(!ME.configured){box.textContent="로그인은 아직 설정되지 않았어요.";return;}
+  if(!ME.loggedIn){
+    var a=el("a","back","구글로 로그인");
+    a.href="/auth/login?next="+encodeURIComponent(location.pathname);
+    box.appendChild(a);
+    return;
+  }
+  hint.textContent="말풍선을 누르면 주석을 달 수 있어요. 주석은 내 계정에 저장돼요.";
+  box.appendChild(el("div","pname",ME.name+" 님"));
+  var lo=el("button","sec","로그아웃");
+  lo.onclick=function(){fetch("/auth/logout",{method:"POST"}).then(function(){location.reload();});};
+  box.appendChild(lo);
+  lb.hidden=false;
+  var inLib=false;
+  function paint(){lb.textContent=inLib?"보관함에서 빼기":"보관함에 저장";}
+  fetch("/api/library").then(function(r){return r.json();}).then(function(d){
+    (d.items||[]).forEach(function(it){if(it.lang===LANG&&it.id===ID)inLib=true;});paint();
+  },paint);
+  lb.onclick=function(){
+    lb.disabled=true;
+    fetch("/api/library/"+LANG+"/"+ID,{method:inLib?"DELETE":"PUT"}).then(function(r){
+      if(r.ok)inLib=!inLib;paint();lb.disabled=false;
+    },function(){lb.disabled=false;});
+  };
+  var loc=localNotes();
+  if(Object.keys(loc).length){
+    im.hidden=false;
+    im.onclick=function(){
+      im.disabled=true;
+      fetch("/api/annotations/"+LANG+"/"+ID,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({notes:loc})}).then(function(r){
+        if(r.ok){for(var k in loc){if(!ANN[k])ANN[k]=loc[k];}im.hidden=true;renderLogs();}
+        else{im.disabled=false;im.textContent="가져오지 못했어요. 다시 시도";}
+      },function(){im.disabled=false;});
+    };
+  }
 }
 
 // ---- 직업 아이콘 (숨김 상태이거나 직업을 모르면 추리중 이미지) ----
@@ -374,11 +466,13 @@ function renderAnn(slot,idx,editing,mode){
     ok.onclick=function(){
       var v=ta.value.trim();
       if(v){ANN[idx]=v;}else{delete ANN[idx];}
-      var saved=saveAnn();
+      var p=persistAnn(idx);
       OPEN=null;renderAnn(slot,idx,false,mode);
-      if(!saved)slot.appendChild(el("div","annbar")).appendChild(el("span","info","이 브라우저에는 저장하지 못했어요 (비공개 모드 등)."));
+      p.then(function(saved){
+        if(!saved)slot.appendChild(el("div","annbar")).appendChild(el("span","info",ME.loggedIn?"서버에 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.":"이 브라우저에는 저장하지 못했어요 (비공개 모드 등)."));
+      });
     };
-    del.onclick=function(){delete ANN[idx];saveAnn();OPEN=null;renderAnn(slot,idx,false,mode);};
+    del.onclick=function(){delete ANN[idx];persistAnn(idx);OPEN=null;renderAnn(slot,idx,false,mode);};
     no.onclick=function(){OPEN=null;renderAnn(slot,idx,false,mode);};
     bar.appendChild(ok);bar.appendChild(del);bar.appendChild(no);bar.appendChild(st);
     box.appendChild(ta);box.appendChild(bar);
@@ -554,12 +648,18 @@ function buildJsonTools(){
   out.appendChild(wrap);
 }
 
-fetch("/api/replay?id="+ID+"&lang="+LANG).then(function(r){return r.json();}).then(function(d){
+fetch("/api/me").then(function(r){return r.json();}).catch(function(){return {};}).then(function(me){
+  ME={configured:!!me.configured,loggedIn:!!me.loggedIn,name:me.name||null};
+  setupAuth();
+  return ME.loggedIn?loadAnnServer():false;
+}).then(function(fromServer){
+  if(!fromServer)loadAnn();
+  return fetch("/api/replay?id="+ID+"&lang="+LANG);
+}).then(function(r){return r.json();}).then(function(d){
   var log=document.getElementById("log");log.textContent="";
   if(d.error){log.appendChild(el("div","sys",d.error));return;}
   DATA=d;USERS=d.users||[];
   USERS.forEach(function(u){if(u.nickname&&!NICK2USER[u.nickname])NICK2USER[u.nickname]=u;});
-  loadAnn();
 
   var hide=document.getElementById("hide");
   hide.checked=true;HIDE=true;
@@ -659,20 +759,433 @@ async function handleApi(url) {
   });
 }
 
+// ---------- 로그인 / 보관함 / 주석 (구글 로그인 + D1) ----------
+// 필요한 설정: D1 바인딩 DB, 시크릿 GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / SESSION_SECRET
+// 설정이 없으면 로그인만 꺼진 채로 사이트는 그대로 동작합니다.
+
+const SESSION_COOKIE = "m42_session";
+const OAUTH_COOKIE = "m42_oauth";
+const SESSION_DAYS = 30;
+const LIB_MAX = 300;
+const ANN_MAX = 1000;
+const NOTE_MAX = 2000;
+const enc = new TextEncoder();
+
+function authConfigured(env) {
+  return !!(
+    env &&
+    env.DB &&
+    env.GOOGLE_CLIENT_ID &&
+    env.GOOGLE_CLIENT_SECRET &&
+    env.SESSION_SECRET
+  );
+}
+
+function b64urlEncode(bytes) {
+  let s = "";
+  for (const b of bytes) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function b64urlDecode(str) {
+  const s = String(str).replace(/-/g, "+").replace(/_/g, "/");
+  const bin = atob(s + "=".repeat((4 - (s.length % 4)) % 4));
+  return Uint8Array.from(bin, (c) => c.charCodeAt(0));
+}
+
+function randomHex(n) {
+  const a = new Uint8Array(n);
+  crypto.getRandomValues(a);
+  return [...a].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function hmacKey(secret) {
+  return crypto.subtle.importKey(
+    "raw",
+    enc.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign", "verify"]
+  );
+}
+
+async function signToken(secret, payload) {
+  const body = b64urlEncode(enc.encode(JSON.stringify(payload)));
+  const sig = await crypto.subtle.sign("HMAC", await hmacKey(secret), enc.encode(body));
+  return body + "." + b64urlEncode(new Uint8Array(sig));
+}
+
+async function verifyToken(secret, token) {
+  try {
+    const [body, sig] = String(token || "").split(".");
+    if (!body || !sig) return null;
+    const ok = await crypto.subtle.verify(
+      "HMAC",
+      await hmacKey(secret),
+      b64urlDecode(sig),
+      enc.encode(body)
+    );
+    if (!ok) return null;
+    const payload = JSON.parse(new TextDecoder().decode(b64urlDecode(body)));
+    if (!payload || typeof payload.exp !== "number" || payload.exp < Date.now() / 1000) {
+      return null;
+    }
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+function parseCookies(request) {
+  const out = {};
+  for (const part of (request.headers.get("Cookie") || "").split(";")) {
+    const i = part.indexOf("=");
+    if (i > 0) out[part.slice(0, i).trim()] = part.slice(i + 1).trim();
+  }
+  return out;
+}
+
+function setCookie(name, value, { maxAge, path = "/" }) {
+  return `${name}=${value}; Path=${path}; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Lax`;
+}
+
+function jsonPrivate(data, status = 200, extra = {}) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+      ...extra,
+    },
+  });
+}
+
+function escapeHtml(s) {
+  return String(s).replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]
+  );
+}
+
+function msgPage(message, status = 400) {
+  return new Response(
+    HEAD("로그인") +
+      `<body><div class="wrap"><div class="card"><p>${escapeHtml(message)}</p><p><a href="/">처음으로</a></p></div></div></body></html>`,
+    {
+      status,
+      headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
+    }
+  );
+}
+
+function safeNext(next) {
+  const n = String(next || "/");
+  return n.startsWith("/") && !n.startsWith("//") && !n.includes("\\") ? n : "/";
+}
+
+// 쿠키를 쓰는 요청은 같은 사이트에서 보낸 것만 허용
+function sameOrigin(request, url) {
+  const origin = request.headers.get("Origin");
+  if (origin) return origin === url.origin;
+  return request.headers.get("Sec-Fetch-Site") === "same-origin";
+}
+
+let schemaReady = false;
+async function ensureSchema(db) {
+  if (schemaReady) return;
+  await db.batch([
+    db.prepare(
+      "CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, name TEXT, created_at INTEGER NOT NULL)"
+    ),
+    db.prepare(
+      "CREATE TABLE IF NOT EXISTS library (user_id TEXT NOT NULL, lang TEXT NOT NULL, room_id TEXT NOT NULL, added_at INTEGER NOT NULL, PRIMARY KEY (user_id, lang, room_id))"
+    ),
+    db.prepare(
+      "CREATE TABLE IF NOT EXISTS annotations (user_id TEXT NOT NULL, lang TEXT NOT NULL, room_id TEXT NOT NULL, line_key TEXT NOT NULL, note TEXT NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (user_id, lang, room_id, line_key))"
+    ),
+  ]);
+  schemaReady = true;
+}
+
+async function getUser(request, env) {
+  if (!authConfigured(env)) return null;
+  const token = parseCookies(request)[SESSION_COOKIE];
+  if (!token) return null;
+  const s = await verifyToken(env.SESSION_SECRET, token);
+  if (!s || !s.sub) return null;
+  await ensureSchema(env.DB);
+  const row = await env.DB.prepare("SELECT id, name FROM users WHERE id = ?")
+    .bind(String(s.sub))
+    .first();
+  return row ? { id: row.id, name: row.name || "사용자" } : null;
+}
+
+async function authLogin(url, env) {
+  if (!authConfigured(env)) return msgPage("로그인이 아직 설정되지 않았어요.", 503);
+  const state = randomHex(16);
+  const nonce = randomHex(16);
+  const next = safeNext(url.searchParams.get("next"));
+  const cookie = await signToken(env.SESSION_SECRET, {
+    state,
+    nonce,
+    next,
+    exp: Math.floor(Date.now() / 1000) + 600,
+  });
+  const q = new URLSearchParams({
+    client_id: env.GOOGLE_CLIENT_ID,
+    redirect_uri: url.origin + "/auth/callback",
+    response_type: "code",
+    scope: "openid profile",
+    state,
+    nonce,
+    prompt: "select_account",
+  });
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: "https://accounts.google.com/o/oauth2/v2/auth?" + q.toString(),
+      "Set-Cookie": setCookie(OAUTH_COOKIE, cookie, { maxAge: 600, path: "/auth" }),
+      "Cache-Control": "no-store",
+    },
+  });
+}
+
+async function authCallback(request, url, env) {
+  if (!authConfigured(env)) return msgPage("로그인이 아직 설정되지 않았어요.", 503);
+  if (url.searchParams.get("error")) return msgPage("로그인이 취소되었거나 실패했어요.", 400);
+
+  const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state");
+  const saved = await verifyToken(env.SESSION_SECRET, parseCookies(request)[OAUTH_COOKIE]);
+  if (!code || !state || !saved || saved.state !== state) {
+    return msgPage("로그인 정보가 맞지 않아요. 처음부터 다시 시도해 주세요.", 400);
+  }
+
+  let tokenRes;
+  try {
+    tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        code,
+        client_id: env.GOOGLE_CLIENT_ID,
+        client_secret: env.GOOGLE_CLIENT_SECRET,
+        redirect_uri: url.origin + "/auth/callback",
+        grant_type: "authorization_code",
+      }),
+    });
+  } catch {
+    return msgPage("구글 서버에 연결하지 못했어요.", 502);
+  }
+  if (!tokenRes.ok) {
+    return msgPage(
+      "구글 로그인 확인에 실패했어요. 클라이언트 ID/비밀키와 리디렉션 주소 설정을 확인해 주세요.",
+      502
+    );
+  }
+
+  // 구글 토큰 서버에서 직접 받은 ID 토큰이라 서명 검증 대신 발급처·대상·시간·nonce만 확인
+  let claims;
+  try {
+    const tok = await tokenRes.json();
+    claims = JSON.parse(new TextDecoder().decode(b64urlDecode(String(tok.id_token).split(".")[1])));
+  } catch {
+    return msgPage("로그인 정보를 읽지 못했어요.", 502);
+  }
+  const issOk = claims.iss === "https://accounts.google.com" || claims.iss === "accounts.google.com";
+  if (
+    !issOk ||
+    claims.aud !== env.GOOGLE_CLIENT_ID ||
+    claims.nonce !== saved.nonce ||
+    !claims.sub ||
+    (claims.exp && claims.exp < Date.now() / 1000)
+  ) {
+    return msgPage("로그인 정보를 확인하지 못했어요.", 400);
+  }
+
+  await ensureSchema(env.DB);
+  const now = Math.floor(Date.now() / 1000);
+  const name = String(claims.name || "").slice(0, 80) || "사용자";
+  await env.DB.prepare(
+    "INSERT INTO users (id, name, created_at) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET name = excluded.name"
+  )
+    .bind(String(claims.sub), name, now)
+    .run();
+
+  const session = await signToken(env.SESSION_SECRET, {
+    sub: String(claims.sub),
+    exp: now + SESSION_DAYS * 86400,
+  });
+  const headers = new Headers({ Location: safeNext(saved.next), "Cache-Control": "no-store" });
+  headers.append("Set-Cookie", setCookie(SESSION_COOKIE, session, { maxAge: SESSION_DAYS * 86400 }));
+  headers.append("Set-Cookie", setCookie(OAUTH_COOKIE, "", { maxAge: 0, path: "/auth" }));
+  return new Response(null, { status: 302, headers });
+}
+
+function authLogout(request, url) {
+  if (request.method !== "POST") return jsonPrivate({ error: "method not allowed" }, 405);
+  if (!sameOrigin(request, url)) return jsonPrivate({ error: "forbidden" }, 403);
+  return jsonPrivate({ ok: true }, 200, {
+    "Set-Cookie": setCookie(SESSION_COOKIE, "", { maxAge: 0 }),
+  });
+}
+
+async function apiMe(request, env) {
+  const configured = authConfigured(env);
+  const user = configured ? await getUser(request, env) : null;
+  return jsonPrivate({ configured, loggedIn: !!user, name: user ? user.name : null });
+}
+
+async function apiLibrary(request, url, env) {
+  const user = await getUser(request, env);
+  if (!user) return jsonPrivate({ error: "로그인이 필요해요." }, 401);
+
+  const m = url.pathname.match(/^\/api\/library(?:\/(kr|en)\/([0-9a-fA-F]{32}))?$/);
+  if (!m) return jsonPrivate({ error: "not found" }, 404);
+  const lang = m[1];
+  const id = m[2] ? m[2].toLowerCase() : null;
+
+  if (request.method === "GET" && !lang) {
+    const { results } = await env.DB.prepare(
+      "SELECT lang, room_id, added_at FROM library WHERE user_id = ? ORDER BY added_at DESC LIMIT ?"
+    )
+      .bind(user.id, LIB_MAX)
+      .all();
+    return jsonPrivate({
+      items: results.map((r) => ({ lang: r.lang, id: r.room_id, added: r.added_at })),
+    });
+  }
+
+  if (!lang) return jsonPrivate({ error: "method not allowed" }, 405);
+  if (!sameOrigin(request, url)) return jsonPrivate({ error: "forbidden" }, 403);
+
+  if (request.method === "PUT") {
+    const c = await env.DB.prepare("SELECT COUNT(*) AS n FROM library WHERE user_id = ?")
+      .bind(user.id)
+      .first();
+    if (c && c.n >= LIB_MAX) return jsonPrivate({ error: "보관함이 가득 찼어요." }, 413);
+    await env.DB.prepare(
+      "INSERT OR IGNORE INTO library (user_id, lang, room_id, added_at) VALUES (?, ?, ?, ?)"
+    )
+      .bind(user.id, lang, id, Math.floor(Date.now() / 1000))
+      .run();
+    return jsonPrivate({ ok: true });
+  }
+
+  if (request.method === "DELETE") {
+    await env.DB.prepare("DELETE FROM library WHERE user_id = ? AND lang = ? AND room_id = ?")
+      .bind(user.id, lang, id)
+      .run();
+    return jsonPrivate({ ok: true });
+  }
+
+  return jsonPrivate({ error: "method not allowed" }, 405);
+}
+
+async function apiAnnotations(request, url, env) {
+  const user = await getUser(request, env);
+  if (!user) return jsonPrivate({ error: "로그인이 필요해요." }, 401);
+
+  const m = url.pathname.match(/^\/api\/annotations\/(kr|en)\/([0-9a-fA-F]{32})$/);
+  if (!m) return jsonPrivate({ error: "not found" }, 404);
+  const lang = m[1];
+  const id = m[2].toLowerCase();
+
+  if (request.method === "GET") {
+    const { results } = await env.DB.prepare(
+      "SELECT line_key, note FROM annotations WHERE user_id = ? AND lang = ? AND room_id = ?"
+    )
+      .bind(user.id, lang, id)
+      .all();
+    const notes = {};
+    for (const r of results) notes[r.line_key] = r.note;
+    return jsonPrivate({ notes });
+  }
+
+  if (request.method !== "PUT") return jsonPrivate({ error: "method not allowed" }, 405);
+  if (!sameOrigin(request, url)) return jsonPrivate({ error: "forbidden" }, 403);
+  if (Number(request.headers.get("Content-Length") || 0) > 300000) {
+    return jsonPrivate({ error: "too large" }, 413);
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonPrivate({ error: "bad request" }, 400);
+  }
+
+  let entries = null;
+  if (body && body.notes && typeof body.notes === "object") entries = Object.entries(body.notes);
+  else if (body && typeof body.key === "string") entries = [[body.key, body.note]];
+  if (!entries || entries.length === 0 || entries.length > 500) {
+    return jsonPrivate({ error: "bad request" }, 400);
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const stmts = [];
+  let upserts = 0;
+  for (const [key, note] of entries) {
+    if (!/^t?\d{1,6}$/.test(key)) return jsonPrivate({ error: "bad key" }, 400);
+    const text = typeof note === "string" ? note.trim().slice(0, NOTE_MAX) : "";
+    if (text) {
+      upserts++;
+      stmts.push(
+        env.DB.prepare(
+          "INSERT INTO annotations (user_id, lang, room_id, line_key, note, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, lang, room_id, line_key) DO UPDATE SET note = excluded.note, updated_at = excluded.updated_at"
+        ).bind(user.id, lang, id, key, text, now)
+      );
+    } else {
+      stmts.push(
+        env.DB.prepare(
+          "DELETE FROM annotations WHERE user_id = ? AND lang = ? AND room_id = ? AND line_key = ?"
+        ).bind(user.id, lang, id, key)
+      );
+    }
+  }
+
+  if (upserts > 0) {
+    const c = await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM annotations WHERE user_id = ? AND lang = ? AND room_id = ?"
+    )
+      .bind(user.id, lang, id)
+      .first();
+    if (c && c.n + upserts > ANN_MAX) return jsonPrivate({ error: "주석이 너무 많아요." }, 413);
+  }
+
+  await env.DB.batch(stmts);
+  return jsonPrivate({ ok: true });
+}
+
 export default {
-  async fetch(request) {
+  async fetch(request, env) {
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: CORS });
     }
 
     const url = new URL(request.url);
+    const p = url.pathname;
 
-    if (url.pathname === "/api/replay") return handleApi(url);
+    try {
+      if (p === "/api/replay") return await handleApi(url);
+      if (p === "/auth/login") return await authLogin(url, env);
+      if (p === "/auth/callback") return await authCallback(request, url, env);
+      if (p === "/auth/logout") return authLogout(request, url);
+      if (p === "/api/me") return await apiMe(request, env);
+      if (p === "/api/library" || p.startsWith("/api/library/")) {
+        return await apiLibrary(request, url, env);
+      }
+      if (p.startsWith("/api/annotations/")) return await apiAnnotations(request, url, env);
+    } catch (e) {
+      return p.startsWith("/auth/")
+        ? msgPage("서버 오류가 발생했어요. 잠시 뒤에 다시 시도해 주세요.", 500)
+        : jsonPrivate({ error: "서버 오류가 발생했어요." }, 500);
+    }
 
-    const m = url.pathname.match(/^\/replay\/(kr|en)\/([0-9a-fA-F]{32})\/?$/);
+    const m = p.match(/^\/replay\/(kr|en)\/([0-9a-fA-F]{32})\/?$/);
     if (m) return html(replayPage(m[1], m[2].toLowerCase()));
 
-    if (url.pathname === "/") return html(HOME_PAGE);
+    if (p === "/") return html(HOME_PAGE);
 
     return html(
       HEAD("없는 페이지") +
