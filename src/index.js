@@ -96,11 +96,14 @@ function parseReplayHtml(htmlText) {
     logs.push({ type: "letter", from, to, nickname: from, message });
   };
 
-  $("section.table")
-    .first()
-    .children(".system, .chat-data-container, .secret-letter-container")
+  const ITEM_SEL = ".system, .chat-data-container, .secret-letter-container";
+  const $root = $("section.table").length ? $("section.table").first() : $.root();
+  $root
+    .find(ITEM_SEL)
     .each((_, el) => {
       const $item = $(el);
+      // 이미 처리되는 묶음 안에 들어 있는 것은 바깥 묶음에서 처리
+      if ($item.parents(ITEM_SEL).length) return;
 
       if ($item.hasClass("secret-letter-container")) {
         pushLetter($item);
