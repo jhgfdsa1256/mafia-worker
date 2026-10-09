@@ -1033,7 +1033,10 @@ function authLogout(request, url) {
 async function apiMe(request, env) {
   const configured = authConfigured(env);
   const user = configured ? await getUser(request, env) : null;
-  return jsonPrivate({ configured, loggedIn: !!user, name: user ? user.name : null });
+  const missing = ["DB", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "SESSION_SECRET"].filter(
+    (k) => !(env && env[k])
+  );
+  return jsonPrivate({ configured, loggedIn: !!user, name: user ? user.name : null, missing });
 }
 
 async function apiLibrary(request, url, env) {
