@@ -412,13 +412,14 @@ function isVisible(l){
 
 // ---- 투표 익명: 득표 현황 카드 ----
 function newTally(idx){
+  var key="t"+idx; // 첫 투표 줄 번호 기준. 일반 줄의 주석과 겹치지 않도록 구분
   var item=el("div","item");
   var card=el("div","tally");
   var slot=el("div","annslot");
-  card.onclick=function(){openEditor(slot,idx,"center");};
+  card.onclick=function(){openEditor(slot,key,"center");};
   item.appendChild(card);
   item.appendChild(slot);
-  renderAnn(slot,idx,false,"center");
+  renderAnn(slot,key,false,"center");
   return {item:item,card:card,counts:{}};
 }
 function fillTally(g){
@@ -442,18 +443,20 @@ function renderLogs(){
   var prevKey=null;
   var group=null;
   var me=VIEW&&USERS[VIEW-1]?USERS[VIEW-1].nickname:null;
+  // 연속된 "N님이 M님에게 투표" 메시지가 끝나는 자리(최후의 반론 앞)에 득표 결과 카드를 넣음
+  function flush(){
+    if(group){fillTally(group);log.appendChild(group.item);group=null;prevKey=null;}
+  }
   DATA.logs.forEach(function(l,i){
-    // 투표 익명: 연속된 "N님이 M님에게 투표" 메시지를 득표 현황 카드 하나로 바꿈
-    var vm=(ANON&&l.type==="system")?VOTE_LINE.exec(l.message):null;
+    var vm=(l.type==="system")?VOTE_LINE.exec(l.message):null;
     if(vm){
-      if(!group){group=newTally(i);log.appendChild(group.item);}
+      if(!group)group=newTally(i);
       group.counts[vm[2]]=(group.counts[vm[2]]||0)+1;
-      fillTally(group);
-      prevKey=null;
-      return;
+      if(ANON)return; // 투표 익명이면 개별 투표 메시지는 숨김 (익명이 아니면 아래에서 그대로 표시)
+    }else{
+      flush();
     }
     if(!isVisible(l))return;
-    group=null;
     var item=el("div","item");
     var slot=el("div","annslot");
 
@@ -500,6 +503,7 @@ function renderLogs(){
     renderAnn(slot,i,false,mode);
     log.appendChild(item);
   });
+  flush();
 }
 
 function copyText(t){
@@ -515,10 +519,18 @@ function copyText(t){
 }
 
 function buildJsonTools(){
-  var notes=Object.keys(ANN).map(Number).sort(function(a,b){return a-b;}).map(function(i){
+  var notes=Object.keys(ANN).map(function(k){
+    var m=/^t(\\d+)$/.exec(k); // 투표 결과 카드에 단 주석
+    var i=m?Number(m[1]):Number(k);
     var l=DATA.logs[i]||{};
-    return {index:i,nickname:l.nickname||null,message:l.message||null,note:ANN[i]};
-  });
+    return {
+      index:i,
+      kind:m?"vote_result":"line",
+      nickname:m?null:(l.nickname||null),
+      message:m?"[투표 결과]":(l.message||null),
+      note:ANN[k]
+    };
+  }).sort(function(a,b){return a.index-b.index;});
   var text=JSON.stringify(Object.assign({},DATA,{annotations:notes}),null,2);
   var out=document.getElementById("toolsOut");
   out.textContent="";
