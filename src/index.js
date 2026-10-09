@@ -86,11 +86,26 @@ function parseReplayHtml(htmlText) {
   const winningTeam = extractWinningTeam($);
   const logs = [];
 
+  // 밀서: To.받는사람 / from.보낸사람 / 본문
+  const pushLetter = ($l) => {
+    const strip = (t) => normalizeText(t).replace(/^(to|from)\s*\.\s*/i, "");
+    const to = strip($l.find(".secret-letter .to").first().text()) || null;
+    const from = strip($l.find(".secret-letter .from").first().text()) || null;
+    const message = normalizeText($l.find(".secret-letter .message").first().text());
+    if (!message && !to && !from) return;
+    logs.push({ type: "letter", from, to, nickname: from, message });
+  };
+
   $("section.table")
     .first()
-    .children(".system, .chat-data-container")
+    .children(".system, .chat-data-container, .secret-letter-container")
     .each((_, el) => {
       const $item = $(el);
+
+      if ($item.hasClass("secret-letter-container")) {
+        pushLetter($item);
+        return;
+      }
 
       if ($item.hasClass("system")) {
         const message = normalizeText($item.find("b").first().text() || $item.text());
@@ -99,8 +114,12 @@ function parseReplayHtml(htmlText) {
       }
 
       const nickname = normalizeText($item.find(".nick-name").first().text()) || null;
-      $item.find(".chat-bubble").each((__, b) => {
+      $item.find(".chat-bubble, .secret-letter-container").each((__, b) => {
         const $b = $(b);
+        if ($b.hasClass("secret-letter-container")) {
+          pushLetter($b);
+          return;
+        }
         const message = normalizeText($b.text());
         if (!message) return;
         logs.push({
@@ -150,7 +169,34 @@ function buildDebug(htmlText) {
     willTextSamples.push($.html($el.parent()).replace(/\s+/g, " ").slice(0, 600));
   });
 
+  const otherChildSamples = [];
+  $("section.table")
+    .first()
+    .children()
+    .each((_, c) => {
+      if (otherChildSamples.length >= 6) return false;
+      const $c = $(c);
+      if ($c.hasClass("system") || $c.hasClass("chat-data-container")) return;
+      otherChildSamples.push($.html(c).replace(/\s+/g, " ").slice(0, 700));
+    });
+
+  const letterSamples = [];
+  const letterSeen = new Set();
+  $("*").each((_, el) => {
+    if (letterSamples.length >= 8) return false;
+    if (/^(script|style|title)$/i.test(el.name)) return;
+    const $el = $(el);
+    if ($el.children().length) return;
+    if (!/밀서/.test($el.text())) return;
+    const sig = ($el.attr("class") || "") + "|" + ($el.parent().attr("class") || "") + "|" + ($el.parent().parent().attr("class") || "");
+    if (letterSeen.has(sig)) return;
+    letterSeen.add(sig);
+    letterSamples.push($.html($el.parent().parent()).replace(/\s+/g, " ").slice(0, 900));
+  });
+
   return {
+    otherChildSamples,
+    letterSamples,
     bubbleClasses: [...bubbleClasses],
     tableChildClasses: [...tableChildClasses],
     willClassSamples,
@@ -201,6 +247,12 @@ select{width:100%;padding:7px;font-size:14px;border-radius:6px;border:1px solid 
 .center{min-width:0}
 .log{display:flex;flex-direction:column;gap:8px}
 .item.cont{margin-top:-5px}
+.letter{background:#f3e9c9;color:#2b2416;border:1px solid #b9a56a;border-radius:10px;padding:8px 14px 12px;margin:4px 0;cursor:pointer}
+.lhead{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;font-size:12px;color:#5c4d2a;font-weight:600}
+.lhead .lfrom{flex:1;text-align:left;word-break:break-all}
+.lhead .lto{flex:1;text-align:right;word-break:break-all}
+.lhead .ltitle{flex:none;font-weight:800;color:#7a5c14}
+.lmsg{text-align:center;margin-top:6px;word-break:break-word;font-size:15px}
 .sys{background:#1e1e1e;color:#ff5a5a;border-radius:10px;padding:8px 14px;text-align:center;font-size:13px;margin:4px 0;cursor:pointer}
 .row{display:flex;gap:10px;align-items:flex-start}
 .row.me{justify-content:flex-end}
@@ -496,7 +548,19 @@ function openEditor(slot,idx,mode){
 // ---- 채팅 보여주기 ----
 function chOf(l){return String(l.channel||"CHAT").replace(/[^A-Z0-9_]/g,"")||"CHAT";}
 function isNight(ch){return ch!=="CHAT"&&ch!=="MEGAPHONE"&&ch!=="GHOSTCHAT"&&ch!=="WILL";}
+function userByName(n){
+  if(!n)return null;
+  if(NICK2USER[n])return NICK2USER[n];
+  // 밀서의 받는 사람 이름이 잘려 있을 수 있어 앞부분이 같고 한 명뿐일 때만 맞춰 줌
+  var hit=USERS.filter(function(u){return u.nickname&&(u.nickname.indexOf(n)===0||n.indexOf(u.nickname)===0);});
+  return hit.length===1?hit[0]:null;
+}
+function nameWithPick(n){
+  var u=userByName(n);
+  return (n||"?")+(u?" · "+u.number+"픽":"");
+}
 function isVisible(l){
+  if(l.type==="letter")return true;
   if(l.type==="system")return !(ANON&&VOTE_RE.test(l.message));
   var ch=chOf(l);
   if(ch==="GHOSTCHAT")return SHOW_GHOST;
@@ -565,6 +629,23 @@ function renderLogs(){
       return;
     }
 
+    if(l.type==="letter"){
+      var lt=el("div","letter");
+      var hd=el("div","lhead");
+      hd.appendChild(el("span","lfrom",nameWithPick(l.from)));
+      hd.appendChild(el("span","ltitle","밀서"));
+      hd.appendChild(el("span","lto",nameWithPick(l.to)));
+      lt.appendChild(hd);
+      lt.appendChild(el("div","lmsg",l.message));
+      lt.onclick=function(){openEditor(slot,i,"center");};
+      item.appendChild(lt);
+      item.appendChild(slot);
+      renderAnn(slot,i,false,"center");
+      log.appendChild(item);
+      prevKey=null;
+      return;
+    }
+
     var ch=chOf(l);
     var known=!!KNOWN[ch];
     var key=(l.nickname||"")+"|"+ch;
@@ -587,7 +668,9 @@ function renderLogs(){
     }else{
       row.appendChild(first?makeAvatar(NICK2USER[l.nickname],"chat-av"):el("div","av-spacer"));
       var col=el("div","col");
-      if(first)col.appendChild(el("div","name",l.nickname||"?"));
+      if(first){
+        col.appendChild(el("div","name",nameWithPick(l.nickname)));
+      }
       col.appendChild(bubble);
       row.appendChild(col);
     }
