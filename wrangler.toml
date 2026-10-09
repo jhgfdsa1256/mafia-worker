@@ -1,0 +1,4 @@
+name = "mafia42-replay"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
