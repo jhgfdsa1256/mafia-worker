@@ -233,6 +233,8 @@ var LANG=${JSON.stringify(lang)},ID=${JSON.stringify(id)};
 var DATA=null,USERS=[],NICK2USER=Object.create(null);
 var HIDE=true,VIEW=0;
 var KNOWN={CHAT:1,MAFIACHAT:1,MEGAPHONE:1,GHOSTCHAT:1};
+// 추리중 아이콘 (숨김 상태이거나 직업을 모를 때 표시)
+var UNKNOWN_ICON="https://raw.githubusercontent.com/LiQuiDsKR/Mafia42ImageResource/refs/heads/main/images/StrategyThumbnail/08%20%EC%B6%94%EB%A6%AC%20%EC%A4%91.webp";
 
 function el(tag,cls,text){var e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e;}
 
@@ -241,7 +243,11 @@ function makeAvatar(u,extra){
   var box=el("div","jobbox"+(extra?" "+extra:""));
   var job=u&&u.job;
   if(HIDE||!job||!/^[a-z0-9_]+$/.test(job)){
-    box.appendChild(el("span","qmark","?"));
+    var q=document.createElement("img");
+    q.alt="?";
+    q.src=UNKNOWN_ICON;
+    q.onerror=function(){q.remove();box.appendChild(el("span","qmark","?"));};
+    box.appendChild(q);
   }else{
     var img=document.createElement("img");
     img.alt=job;
