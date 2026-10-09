@@ -740,7 +740,7 @@ fetch("/api/me").then(function(r){return r.json();}).catch(function(){return {};
   return ME.loggedIn?loadAnnServer():false;
 }).then(function(fromServer){
   if(!fromServer)loadAnn();
-  return fetch("/api/replay?id="+ID+"&lang="+LANG);
+  return fetch("/api/replay?id="+ID+"&lang="+LANG+"&v=4");
 }).then(function(r){return r.json();}).then(function(d){
   var log=document.getElementById("log");log.textContent="";
   if(d.error){log.appendChild(el("div","sys",d.error));return;}
@@ -841,7 +841,7 @@ async function handleApi(url) {
   }
 
   return json({ roomId: id, lang, ...parsed }, 200, {
-    "Cache-Control": "public, max-age=3600",
+    "Cache-Control": "public, max-age=300",
   });
 }
 
