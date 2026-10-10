@@ -293,13 +293,18 @@ select{width:100%;padding:7px;font-size:14px;border-radius:6px;border:1px solid 
 .annbar button{width:auto;padding:6px 14px;font-size:13px}
 .annbar .info{font-size:12px;color:var(--muted)}
 
+.sheetbtn{display:none}
 @media (max-width:860px){
-  .layout{grid-template-columns:1fr}
+  .layout{grid-template-columns:1fr;padding-bottom:84px}
   .wing{position:static;max-height:none}
-  .wing.right{order:1}
-  .wing.left{order:2}
-  .center{order:3}
+  .wing.left{order:1}
+  .center{order:2}
   .ann,.ann.me{max-width:90%}
+  /* 오른쪽 날개는 아래에서 올라오는 메모장으로 */
+  .wing.right{position:fixed;left:0;right:0;top:auto;bottom:0;order:3;z-index:20;height:50vh;height:50dvh;max-height:none;overflow:auto;border-radius:16px 16px 0 0;border-bottom:0;box-shadow:0 -6px 24px rgba(0,0,0,.5);transform:translateY(105%);transition:transform .25s ease;visibility:hidden}
+  body.sheet-open .wing.right{transform:none;visibility:visible}
+  .sheetbtn{display:flex;align-items:center;justify-content:center;position:fixed;right:14px;bottom:14px;z-index:30;width:48px;height:48px;padding:0;border-radius:24px;background:var(--accent);color:#fff;font-size:20px;box-shadow:0 2px 10px rgba(0,0,0,.5);transition:bottom .25s ease}
+  body.sheet-open .sheetbtn{bottom:calc(50vh + 10px);bottom:calc(50dvh + 10px)}
 }
 `;
 
@@ -394,6 +399,7 @@ function replayPage(lang, id) {
   <div class="win" id="win" hidden></div>
 </aside>
 </div>
+<button id="sheetbtn" class="sheetbtn" aria-label="메모장 열기" aria-expanded="false">▲</button>
 <script>
 var LANG=${JSON.stringify(lang)},ID=${JSON.stringify(id)};
 var DATA=null,USERS=[],NICK2USER=Object.create(null);
@@ -735,6 +741,17 @@ function buildJsonTools(){
   wrap.appendChild(dl);wrap.appendChild(cp);wrap.appendChild(st);
   out.appendChild(wrap);
 }
+
+(function(){
+  var b=document.getElementById("sheetbtn");
+  if(!b)return;
+  b.onclick=function(){
+    var open=document.body.classList.toggle("sheet-open");
+    b.textContent=open?"▼":"▲";
+    b.setAttribute("aria-label",open?"메모장 내리기":"메모장 열기");
+    b.setAttribute("aria-expanded",open?"true":"false");
+  };
+})();
 
 fetch("/api/me").then(function(r){return r.json();}).catch(function(){return {};}).then(function(me){
   ME={configured:!!me.configured,loggedIn:!!me.loggedIn,name:me.name||null};
