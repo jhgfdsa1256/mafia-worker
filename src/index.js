@@ -249,7 +249,7 @@ select{width:100%;padding:7px;font-size:14px;border-radius:6px;border:1px solid 
 .hint{font-size:12px;color:var(--muted);line-height:1.4;margin:4px 0 0}
 
 .player{display:flex;align-items:center;gap:12px;padding:7px 0}
-.jobbox{position:relative;width:44px;height:44px;flex:none;background:#222;border-radius:8px;display:flex;align-items:center;justify-content:center}
+.jobbox{position:relative;width:44px;height:44px;flex:none;background:#222;border-radius:0;display:flex;align-items:center;justify-content:center}
 .jobbox img{width:100%;height:100%;object-fit:contain;border-radius:inherit}
 .qmark{font-weight:800;font-size:22px;color:#ddd;line-height:1}
 .jobfb{font-size:10px;color:var(--muted);text-align:center;word-break:break-all;padding:2px;line-height:1.2}
@@ -262,7 +262,7 @@ select{width:100%;padding:7px;font-size:14px;border-radius:6px;border:1px solid 
 .item.cont{margin-top:-5px}
 #auth .pname,#acct .pname{margin-bottom:8px}
 .wing button{margin-top:8px}
-.ghoulbox{position:absolute;right:0;bottom:0;width:40%;height:40%;background:#111;border-top:1px solid #ccc;border-left:1px solid #ccc;border-radius:4px 0 8px 0;overflow:hidden;display:flex}
+.ghoulbox{position:absolute;right:0;bottom:0;width:40%;height:40%;background:#111;border:1px solid #ccc;border-radius:0;overflow:hidden;display:flex}
 .ghoulbox img{width:100%;height:100%;object-fit:contain;border-radius:0}
 .gbtn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:10px 14px;background:#fff;color:#3c4043;border:1px solid #dadce0;border-radius:8px;font-size:15px;font-weight:500;text-decoration:none;box-shadow:0 1px 2px rgba(0,0,0,.3)}
 .gbtn{white-space:nowrap}
@@ -292,7 +292,7 @@ select{width:100%;padding:7px;font-size:14px;border-radius:6px;border:1px solid 
 .row.me{justify-content:flex-end}
 .col{min-width:0;max-width:78%;display:flex;flex-direction:column;align-items:flex-start}
 .jobbox.chat-av,.av-spacer{width:40px;height:40px;flex:none}
-.jobbox.chat-av{border-radius:12px}
+.jobbox.chat-av{border-radius:0}
 .jobbox.chat-av .qmark{font-size:20px}
 .name{font-size:12px;color:var(--muted);margin:0 0 3px 2px}
 .bubble{padding:8px 12px;border-radius:14px;word-break:break-word;border:1px solid transparent;max-width:100%;cursor:pointer}
@@ -309,7 +309,7 @@ select{width:100%;padding:7px;font-size:14px;border-radius:6px;border:1px solid 
 .tally{background:#1e1e1e;border-radius:10px;padding:10px 14px;margin:4px auto;max-width:420px;cursor:pointer}
 .tally .thead{font-size:12px;color:var(--muted);margin-bottom:6px}
 .trow{display:flex;align-items:center;gap:10px;padding:4px 0}
-.jobbox.tally-av{width:34px;height:34px;border-radius:10px}
+.jobbox.tally-av{width:34px;height:34px;border-radius:0}
 .jobbox.tally-av .qmark{font-size:18px}
 .tname{flex:1;min-width:0;text-align:left;word-break:break-all;font-size:14px}
 .tcnt{font-weight:700;color:#ff5a5a;white-space:nowrap}
