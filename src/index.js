@@ -209,6 +209,16 @@ function buildDebug(htmlText) {
 
 // ---------- 화면 (HTML) ----------
 
+// 구글 로그인 버튼에 쓰는 G 로고 (공식 4색)
+const GOOGLE_G =
+  "<svg viewBox='0 0 48 48' width='20' height='20' aria-hidden='true'>" +
+  "<path fill='#EA4335' d='M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z'/>" +
+  "<path fill='#4285F4' d='M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z'/>" +
+  "<path fill='#FBBC05' d='M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z'/>" +
+  "<path fill='#34A853' d='M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z'/>" +
+  "</svg>";
+const LOGIN_NOTE = "로그인하면 보관함 저장과 주석 저장을 쓸 수 있어요.";
+
 const STYLE = `
 :root{--bg:#2b2b2b;--fg:#ececec;--muted:#a8a8a8;--card:#363636;--line:#4d4d4d;--accent:#4a7de8}
 *{box-sizing:border-box}
@@ -252,6 +262,14 @@ select{width:100%;padding:7px;font-size:14px;border-radius:6px;border:1px solid 
 .item.cont{margin-top:-5px}
 #auth .pname,#acct .pname{margin-bottom:8px}
 .wing button{margin-top:8px}
+.gbtn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:10px 14px;background:#fff;color:#3c4043;border:1px solid #dadce0;border-radius:8px;font-size:15px;font-weight:500;text-decoration:none;box-shadow:0 1px 2px rgba(0,0,0,.3)}
+.gbtn{white-space:nowrap}
+#acct .gbtn{width:33.333%;min-width:190px;margin:0 auto}
+.wing .gbtn{font-size:13px;padding:9px 8px;gap:8px}
+.gbtn:hover{background:#f6f7f8}
+.gbtn:active{background:#eceff1}
+.gbtn svg{flex:none;display:block}
+.gnote{font-size:12px;color:var(--muted);line-height:1.4;margin-top:8px;text-align:center}
 .libform{margin-top:8px;padding:10px;border:1px solid var(--line);border-radius:8px;background:#2f2f2f}
 .libform .info{font-size:12px;color:var(--muted);margin:6px 0 4px}
 .libform button{margin-top:8px}
@@ -337,6 +355,7 @@ const HOME_PAGE =
 <div class="card" id="acct"><div class="info">확인 중...</div></div>
 </div>
 <script>
+var GOOGLE_G=${JSON.stringify(GOOGLE_G)},LOGIN_NOTE=${JSON.stringify(LOGIN_NOTE)};
 function go(){
   var v=document.getElementById("q").value.trim();
   var m=v.match(/[0-9a-f]{32}/i);
@@ -353,8 +372,13 @@ function acct(){
     box.textContent="";
     if(!me.configured){box.style.display="none";return;}
     if(!me.loggedIn){
-      var a=mk("a","back","구글로 로그인하면 보관함과 주석을 계정에 저장할 수 있어요");
-      a.href="/auth/login?next=/";box.appendChild(a);return;
+      var a=mk("a","gbtn","");
+      a.href="/auth/login?next=/";
+      var ic=mk("span",null,"");ic.innerHTML=GOOGLE_G;
+      a.appendChild(ic);a.appendChild(mk("span",null,"Google로 로그인"));
+      box.appendChild(a);
+      box.appendChild(mk("div","gnote",LOGIN_NOTE));
+      return;
     }
     box.appendChild(mk("div","pname",me.name+" 님의 보관함"));
     var lo=mk("button","sec","로그아웃");
@@ -428,6 +452,7 @@ function replayPage(lang, id) {
 <button id="sheetbtn" class="sheetbtn" aria-label="메모장 열기" aria-expanded="false">▲</button>
 <script>
 var LANG=${JSON.stringify(lang)},ID=${JSON.stringify(id)};
+var GOOGLE_G=${JSON.stringify(GOOGLE_G)},LOGIN_NOTE=${JSON.stringify(LOGIN_NOTE)};
 var DATA=null,USERS=[],NICK2USER=Object.create(null);
 var HIDE=true,ANON=true,VIEW=0,SHOW_NIGHT=false,SHOW_GHOST=false;
 // 누가 누구에게 투표했는지 / 찬성·반대했는지 알려 주는 시스템 메시지
@@ -471,9 +496,12 @@ function setupAuth(){
   lb.hidden=true;im.hidden=true;
   if(!ME.configured){box.textContent="로그인은 아직 설정되지 않았어요.";return;}
   if(!ME.loggedIn){
-    var a=el("a","back","구글로 로그인");
+    var a=el("a","gbtn","");
     a.href="/auth/login?next="+encodeURIComponent(location.pathname);
+    var ic=el("span",null,"");ic.innerHTML=GOOGLE_G;
+    a.appendChild(ic);a.appendChild(el("span",null,"Google로 로그인"));
     box.appendChild(a);
+    box.appendChild(el("div","gnote",LOGIN_NOTE));
     return;
   }
   hint.textContent="말풍선을 누르면 주석을 달 수 있어요. 주석은 내 계정에 저장돼요.";
