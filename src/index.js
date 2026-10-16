@@ -250,6 +250,17 @@ select{width:100%;padding:7px;font-size:14px;border-radius:6px;border:1px solid 
 .center{min-width:0}
 .log{display:flex;flex-direction:column;gap:8px}
 .item.cont{margin-top:-5px}
+#auth .pname,#acct .pname{margin-bottom:8px}
+.wing button{margin-top:8px}
+.libform{margin-top:8px;padding:10px;border:1px solid var(--line);border-radius:8px;background:#2f2f2f}
+.libform .info{font-size:12px;color:var(--muted);margin:6px 0 4px}
+.libform button{margin-top:8px}
+.libform input[type=text]{padding:8px;font-size:14px}
+.libitem{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
+.libitem .libtxt{flex:1;min-width:0}
+.libitem .libtitle{display:block;font-size:15px;word-break:break-all}
+.libitem .libsub{font-size:12px;color:var(--muted)}
+.libitem button{width:auto;padding:6px 10px;font-size:13px}
 .letter{background:#f3e9c9;color:#2b2416;border:1px solid #b9a56a;border-radius:10px;padding:8px 14px 12px;margin:4px 0;cursor:pointer}
 .lhead{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;font-size:12px;color:#5c4d2a;font-weight:600}
 .lhead .lfrom{flex:1;text-align:left;word-break:break-all}
@@ -293,13 +304,18 @@ select{width:100%;padding:7px;font-size:14px;border-radius:6px;border:1px solid 
 .annbar button{width:auto;padding:6px 14px;font-size:13px}
 .annbar .info{font-size:12px;color:var(--muted)}
 
+.sheetbtn{display:none}
 @media (max-width:860px){
-  .layout{grid-template-columns:1fr}
+  .layout{grid-template-columns:1fr;padding-bottom:84px}
   .wing{position:static;max-height:none}
-  .wing.right{order:1}
-  .wing.left{order:2}
-  .center{order:3}
+  .wing.left{order:1}
+  .center{order:2}
   .ann,.ann.me{max-width:90%}
+  /* 오른쪽 날개는 아래에서 올라오는 메모장으로 */
+  .wing.right{position:fixed;left:0;right:0;top:auto;bottom:0;order:3;z-index:20;height:50vh;height:50dvh;max-height:none;overflow:auto;border-radius:16px 16px 0 0;border-bottom:0;box-shadow:0 -6px 24px rgba(0,0,0,.5);transform:translateY(105%);transition:transform .25s ease;visibility:hidden}
+  body.sheet-open .wing.right{transform:none;visibility:visible}
+  .sheetbtn{display:flex;align-items:center;justify-content:center;position:fixed;right:14px;bottom:14px;z-index:30;width:48px;height:48px;padding:0;border-radius:24px;background:var(--accent);color:#fff;font-size:20px;box-shadow:0 2px 10px rgba(0,0,0,.5);transition:bottom .25s ease}
+  body.sheet-open .sheetbtn{bottom:calc(50vh + 10px);bottom:calc(50dvh + 10px)}
 }
 `;
 
@@ -349,12 +365,26 @@ function acct(){
       var items=d.items||[];
       if(!items.length){list.appendChild(mk("div","info","아직 비어 있어요. 리플레이 화면에서 보관함에 저장해 보세요."));return;}
       items.forEach(function(it){
-        var row=mk("div","player","");
-        var a=mk("a","pname",it.lang+" · "+it.id.slice(0,8)+"…");
+        var row=mk("div","libitem","");
+        var ic=mk("div","jobbox","");
+        if(it.job&&/^[a-z0-9_]+$/.test(it.job)){
+          var im=document.createElement("img");
+          im.alt=it.job;
+          im.src="https://mafia42.com/chat/jobs/jobthumb_"+it.job+".png";
+          im.onerror=function(){im.remove();ic.appendChild(mk("span","qmark","?"));};
+          ic.appendChild(im);
+        }else{ic.appendChild(mk("span","qmark","?"));}
+        row.appendChild(ic);
+        var tx=mk("div","libtxt","");
+        var a=mk("a","libtitle",it.title||(it.lang+" · "+it.id.slice(0,8)+"…"));
         a.href="/replay/"+it.lang+"/"+it.id;
+        tx.appendChild(a);
+        if(it.nickname)tx.appendChild(mk("div","libsub",(it.pick?it.pick+"픽 · ":"")+it.nickname));
+        row.appendChild(tx);
         var x=mk("button","sec","빼기");
         x.onclick=function(){fetch("/api/library/"+it.lang+"/"+it.id,{method:"DELETE"}).then(function(r){if(r.ok)row.remove();});};
-        row.appendChild(a);row.appendChild(x);list.appendChild(row);
+        row.appendChild(x);
+        list.appendChild(row);
       });
     });
   }).catch(function(){box.style.display="none";});
@@ -373,6 +403,7 @@ function replayPage(lang, id) {
   <h2>계정</h2>
   <div id="auth" class="info">확인 중...</div>
   <button id="libbtn" class="sec" hidden>보관함에 저장</button>
+  <div id="libform" class="libform" hidden></div>
   <button id="import" class="sec" hidden>이 브라우저 주석 가져오기</button>
   <h2 class="mt">도구</h2>
   <button id="extract" disabled>JSON 추출하기</button>
@@ -394,6 +425,7 @@ function replayPage(lang, id) {
   <div class="win" id="win" hidden></div>
 </aside>
 </div>
+<button id="sheetbtn" class="sheetbtn" aria-label="메모장 열기" aria-expanded="false">▲</button>
 <script>
 var LANG=${JSON.stringify(lang)},ID=${JSON.stringify(id)};
 var DATA=null,USERS=[],NICK2USER=Object.create(null);
@@ -450,16 +482,61 @@ function setupAuth(){
   lo.onclick=function(){fetch("/auth/logout",{method:"POST"}).then(function(){location.reload();});};
   box.appendChild(lo);
   lb.hidden=false;
-  var inLib=false;
-  function paint(){lb.textContent=inLib?"보관함에서 빼기":"보관함에 저장";}
+  var cur=null; // 보관함에 있는 내 항목
+  var form=document.getElementById("libform");
+  function paint(){lb.textContent=cur?"보관함 정보 수정":"보관함에 저장";}
+  function today(){return new Date(Date.now()+9*3600000).toISOString().slice(2,10).replace(/-/g,"");}
+  function defTitle(pick){var u=USERS[pick-1];return today()+" "+((u&&u.nickname)||"?")+"의 게임";}
   fetch("/api/library").then(function(r){return r.json();}).then(function(d){
-    (d.items||[]).forEach(function(it){if(it.lang===LANG&&it.id===ID)inLib=true;});paint();
+    (d.items||[]).forEach(function(it){if(it.lang===LANG&&it.id===ID)cur=it;});paint();
   },paint);
   lb.onclick=function(){
-    lb.disabled=true;
-    fetch("/api/library/"+LANG+"/"+ID,{method:inLib?"DELETE":"PUT"}).then(function(r){
-      if(r.ok)inLib=!inLib;paint();lb.disabled=false;
-    },function(){lb.disabled=false;});
+    form.textContent="";form.hidden=false;
+    if(!USERS.length){form.appendChild(el("div","info","리플레이를 불러온 뒤에 눌러 주세요."));return;}
+    form.appendChild(el("div","info","누구의 게임으로 저장할까요?"));
+    var sel=document.createElement("select");
+    USERS.forEach(function(u){
+      var o=document.createElement("option");
+      o.value=String(u.number);o.textContent=u.number+". "+(u.nickname||"?");
+      sel.appendChild(o);
+    });
+    var pick=(cur&&cur.pick)?cur.pick:1;
+    sel.value=String(pick);
+    form.appendChild(sel);
+    form.appendChild(el("div","info","제목"));
+    var ti=document.createElement("input");
+    ti.type="text";ti.maxLength=60;
+    var edited=!!(cur&&cur.title);
+    ti.value=(cur&&cur.title)||defTitle(pick);
+    ti.oninput=function(){edited=true;};
+    sel.onchange=function(){if(!edited)ti.value=defTitle(Number(sel.value));};
+    form.appendChild(ti);
+    var st=el("div","info","");
+    var ok=el("button",null,"저장");
+    ok.onclick=function(){
+      var n=Number(sel.value),u=USERS[n-1]||{};
+      var body={title:ti.value.trim()||defTitle(n),pick:n,nickname:u.nickname||null,job:u.job||null};
+      ok.disabled=true;st.textContent="";
+      fetch("/api/library/"+LANG+"/"+ID,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(function(r){
+        if(r.ok){cur={lang:LANG,id:ID,title:body.title,pick:n,nickname:body.nickname,job:body.job};paint();form.hidden=true;}
+        else{ok.disabled=false;st.textContent="저장하지 못했어요. 다시 시도해 주세요.";}
+      },function(){ok.disabled=false;st.textContent="저장하지 못했어요. 다시 시도해 주세요.";});
+    };
+    form.appendChild(ok);
+    if(cur){
+      var rm=el("button","sec","보관함에서 빼기");
+      rm.onclick=function(){
+        rm.disabled=true;
+        fetch("/api/library/"+LANG+"/"+ID,{method:"DELETE"}).then(function(r){
+          if(r.ok){cur=null;paint();form.hidden=true;}else{rm.disabled=false;st.textContent="빼지 못했어요.";}
+        },function(){rm.disabled=false;st.textContent="빼지 못했어요.";});
+      };
+      form.appendChild(rm);
+    }
+    var no=el("button","sec","닫기");
+    no.onclick=function(){form.hidden=true;};
+    form.appendChild(no);
+    form.appendChild(st);
   };
   var loc=localNotes();
   if(Object.keys(loc).length){
@@ -736,6 +813,17 @@ function buildJsonTools(){
   out.appendChild(wrap);
 }
 
+(function(){
+  var b=document.getElementById("sheetbtn");
+  if(!b)return;
+  b.onclick=function(){
+    var open=document.body.classList.toggle("sheet-open");
+    b.textContent=open?"▼":"▲";
+    b.setAttribute("aria-label",open?"메모장 내리기":"메모장 열기");
+    b.setAttribute("aria-expanded",open?"true":"false");
+  };
+})();
+
 fetch("/api/me").then(function(r){return r.json();}).catch(function(){return {};}).then(function(me){
   ME={configured:!!me.configured,loggedIn:!!me.loggedIn,name:me.name||null};
   setupAuth();
@@ -992,6 +1080,14 @@ async function ensureSchema(db) {
       "CREATE TABLE IF NOT EXISTS annotations (user_id TEXT NOT NULL, lang TEXT NOT NULL, room_id TEXT NOT NULL, line_key TEXT NOT NULL, note TEXT NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (user_id, lang, room_id, line_key))"
     ),
   ]);
+  // 예전에 만든 보관함 테이블에 제목/픽/닉네임/직업 칸 추가
+  const info = await db.prepare("PRAGMA table_info(library)").all();
+  const have = new Set((info.results || []).map((r) => r.name));
+  const add = [];
+  for (const [col, type] of [["title", "TEXT"], ["pick", "INTEGER"], ["nickname", "TEXT"], ["job", "TEXT"]]) {
+    if (!have.has(col)) add.push(db.prepare("ALTER TABLE library ADD COLUMN " + col + " " + type));
+  }
+  if (add.length) await db.batch(add);
   schemaReady = true;
 }
 
@@ -1138,12 +1234,20 @@ async function apiLibrary(request, url, env) {
 
   if (request.method === "GET" && !lang) {
     const { results } = await env.DB.prepare(
-      "SELECT lang, room_id, added_at FROM library WHERE user_id = ? ORDER BY added_at DESC LIMIT ?"
+      "SELECT lang, room_id, added_at, title, pick, nickname, job FROM library WHERE user_id = ? ORDER BY added_at DESC LIMIT ?"
     )
       .bind(user.id, LIB_MAX)
       .all();
     return jsonPrivate({
-      items: results.map((r) => ({ lang: r.lang, id: r.room_id, added: r.added_at })),
+      items: results.map((r) => ({
+        lang: r.lang,
+        id: r.room_id,
+        added: r.added_at,
+        title: r.title || null,
+        pick: r.pick || null,
+        nickname: r.nickname || null,
+        job: r.job || null,
+      })),
     });
   }
 
@@ -1151,14 +1255,38 @@ async function apiLibrary(request, url, env) {
   if (!sameOrigin(request, url)) return jsonPrivate({ error: "forbidden" }, 403);
 
   if (request.method === "PUT") {
-    const c = await env.DB.prepare("SELECT COUNT(*) AS n FROM library WHERE user_id = ?")
-      .bind(user.id)
-      .first();
-    if (c && c.n >= LIB_MAX) return jsonPrivate({ error: "보관함이 가득 찼어요." }, 413);
-    await env.DB.prepare(
-      "INSERT OR IGNORE INTO library (user_id, lang, room_id, added_at) VALUES (?, ?, ?, ?)"
+    let body = {};
+    try {
+      body = await request.json();
+    } catch {
+      body = {};
+    }
+    if (!body || typeof body !== "object") body = {};
+    const title = typeof body.title === "string" ? body.title.trim().slice(0, 60) : "";
+    const pickN = Number(body.pick);
+    const pick = Number.isInteger(pickN) && pickN >= 1 && pickN <= 8 ? pickN : null;
+    const nickname =
+      typeof body.nickname === "string" && body.nickname.trim()
+        ? body.nickname.trim().slice(0, 40)
+        : null;
+    const job = typeof body.job === "string" && /^[a-z0-9_]{1,40}$/.test(body.job) ? body.job : null;
+
+    const exists = await env.DB.prepare(
+      "SELECT 1 AS x FROM library WHERE user_id = ? AND lang = ? AND room_id = ?"
     )
-      .bind(user.id, lang, id, Math.floor(Date.now() / 1000))
+      .bind(user.id, lang, id)
+      .first();
+    if (!exists) {
+      const c = await env.DB.prepare("SELECT COUNT(*) AS n FROM library WHERE user_id = ?")
+        .bind(user.id)
+        .first();
+      if (c && c.n >= LIB_MAX) return jsonPrivate({ error: "보관함이 가득 찼어요." }, 413);
+    }
+    await env.DB.prepare(
+      "INSERT INTO library (user_id, lang, room_id, added_at, title, pick, nickname, job) VALUES (?, ?, ?, ?, ?, ?, ?, ?) " +
+        "ON CONFLICT(user_id, lang, room_id) DO UPDATE SET title = excluded.title, pick = excluded.pick, nickname = excluded.nickname, job = excluded.job"
+    )
+      .bind(user.id, lang, id, Math.floor(Date.now() / 1000), title || null, pick, nickname, job)
       .run();
     return jsonPrivate({ ok: true });
   }
