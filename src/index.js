@@ -302,6 +302,9 @@ select{width:100%;padding:7px;font-size:14px;border-radius:6px;border:1px solid 
 .libform .info{font-size:12px;color:var(--muted);margin:6px 0 4px}
 .libform button{margin-top:8px}
 .libform input[type=text]{padding:8px;font-size:14px}
+.linkbtn{display:inline-block;flex:none;padding:6px 10px;font-size:13px;border-radius:8px;background:var(--accent);color:#fff;text-decoration:none;text-align:center}
+.linkbtn:hover{background:#628ced}
+.linkbtn.full{display:block;width:100%;padding:11px;font-size:15px;margin-top:8px}
 button.del{background:#e8564f;color:#fff}
 button.del:hover{background:#f0655e}
 .modalbg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:100;padding:16px}
@@ -360,16 +363,18 @@ button.del:hover{background:#f0655e}
 
 .sheetbtn{display:none}
 @media (max-width:860px){
+  :root{--sheet:max(35vh,240px);--sheet:max(35dvh,240px)}
   .layout{grid-template-columns:1fr;padding-bottom:84px}
   .wing{position:static;max-height:none}
   .wing.left{order:1}
   .center{order:2}
   .ann,.ann.me{max-width:90%}
   /* 오른쪽 날개는 아래에서 올라오는 메모장으로 */
-  .wing.right{position:fixed;left:0;right:0;top:auto;bottom:0;order:3;z-index:20;height:50vh;height:50dvh;max-height:none;overflow:auto;border-radius:16px 16px 0 0;border-bottom:0;box-shadow:0 -6px 24px rgba(0,0,0,.5);transform:translateY(105%);transition:transform .25s ease;visibility:hidden}
+  .wing.right{position:fixed;left:0;right:0;top:auto;bottom:0;order:3;z-index:20;height:var(--sheet);max-height:none;overflow:auto;border-radius:16px 16px 0 0;border-bottom:0;box-shadow:0 -6px 24px rgba(0,0,0,.5);transform:translateY(105%);transition:transform .25s ease;visibility:hidden}
   body.sheet-open .wing.right{transform:none;visibility:visible}
+  body.sheet-open .layout{padding-bottom:calc(var(--sheet) + 70px)}
   .sheetbtn{display:flex;align-items:center;justify-content:center;position:fixed;right:14px;bottom:14px;z-index:30;width:48px;height:48px;padding:0;border-radius:24px;background:var(--accent);color:#fff;font-size:20px;box-shadow:0 2px 10px rgba(0,0,0,.5);transition:bottom .25s ease}
-  body.sheet-open .sheetbtn{bottom:calc(50vh + 10px);bottom:calc(50dvh + 10px)}
+  body.sheet-open .sheetbtn{bottom:calc(var(--sheet) + 10px)}
 }
 `;
 
@@ -465,6 +470,11 @@ function acct(){
         if(it.added)parts.push("불러온 일시 : "+fmtTime(it.added));
         if(parts.length)tx.appendChild(mk("div","libsub",parts.join(" · ")));
         row.appendChild(tx);
+        var ob=mk("a","linkbtn","원본");
+        ob.href="https://mafia42.com/history/"+it.lang+"/"+it.id;
+        ob.target="_blank";ob.rel="noopener noreferrer";
+        ob.onclick=function(e){e.stopPropagation();};
+        row.appendChild(ob);
         var x=mk("button","del","삭제");
         x.onclick=function(e){
           e.stopPropagation();
@@ -495,6 +505,8 @@ function replayPage(lang, id) {
   <div id="libform" class="libform" hidden></div>
   <button id="import" class="sec" hidden>이 브라우저 주석 가져오기</button>
   <h2 class="mt">도구</h2>
+  <a class="linkbtn full" id="orig" href="${"https://mafia42.com/history/" + lang + "/" + id}" target="_blank" rel="noopener noreferrer">원본 리플레이 열기</a>
+
   <button id="extract" disabled>JSON 추출하기</button>
   <div id="toolsOut"></div>
 </aside>
