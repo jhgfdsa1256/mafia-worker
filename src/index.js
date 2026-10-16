@@ -80,6 +80,30 @@ function extractWinningTeam($) {
   return t || null;
 }
 
+// 리플레이 안에 게임 날짜가 들어 있으면 "YYYY-MM-DD"로 돌려줌 (없으면 null)
+const DATE_RES = [
+  /(20\d{2})-(\d{2})-(\d{2})[T ]\d{2}:\d{2}/,
+  /(20\d{2})\s*[-./년]\s*(\d{1,2})\s*[-./월]\s*(\d{1,2})/,
+];
+function findDateCandidates(htmlText) {
+  const out = [];
+  for (const re of DATE_RES) {
+    const g = new RegExp(re.source, "g");
+    let m;
+    while ((m = g.exec(htmlText)) && out.length < 8) {
+      out.push({
+        date: `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`,
+        context: htmlText.slice(Math.max(0, m.index - 60), m.index + 60).replace(/\s+/g, " "),
+      });
+    }
+  }
+  return out;
+}
+function extractPlayedDate(htmlText) {
+  const c = findDateCandidates(htmlText)[0];
+  return c ? c.date : null;
+}
+
 function parseReplayHtml(htmlText) {
   const $ = cheerio.load(htmlText);
   const users = extractUsers($);
@@ -134,11 +158,11 @@ function parseReplayHtml(htmlText) {
       });
     });
 
-  return { users, winningTeam, logs };
+  return { users, winningTeam, playedAt: extractPlayedDate(htmlText), logs };
 }
 
 // 구조 확인용: 이 리플레이에서 쓰인 클래스 이름과 "유언"이 들어간 부분의 원본 HTML
-function buildDebug(htmlText) {
+function buildDebug(htmlText, upstreamHeaders) {
   const $ = cheerio.load(htmlText);
 
   const bubbleClasses = new Set();
@@ -198,6 +222,8 @@ function buildDebug(htmlText) {
   });
 
   return {
+    dateCandidates: findDateCandidates(htmlText),
+    upstreamHeaders: upstreamHeaders || {},
     otherChildSamples,
     letterSamples,
     bubbleClasses: [...bubbleClasses],
@@ -276,8 +302,16 @@ select{width:100%;padding:7px;font-size:14px;border-radius:6px;border:1px solid 
 .libform .info{font-size:12px;color:var(--muted);margin:6px 0 4px}
 .libform button{margin-top:8px}
 .libform input[type=text]{padding:8px;font-size:14px}
-.libitem{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
+button.del{background:#e8564f;color:#fff}
+button.del:hover{background:#f0655e}
+.modalbg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:100;padding:16px}
+.modal{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px;width:100%;max-width:320px}
+.modaltext{font-size:16px;text-align:center;margin-bottom:16px}
+.modalbtns{display:flex;gap:10px}
+.modalbtns button{margin:0}
+.libitem{cursor:pointer;display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
 .libitem .libtxt{flex:1;min-width:0}
+.libitem:hover{background:rgba(255,255,255,.04)}
 .libitem .libtitle{display:block;font-size:15px;word-break:break-all}
 .libitem .libsub{font-size:12px;color:var(--muted)}
 .libitem button{width:auto;padding:6px 10px;font-size:13px}
@@ -366,7 +400,26 @@ function go(){
   var lang=l?l[1].toLowerCase():"kr";
   location.href="/replay/"+lang+"/"+m[0].toLowerCase();
 }
-function esc(t){return String(t);}
+function fmtTime(sec){
+  var d=new Date(sec*1000+9*3600000).toISOString(); // 한국 시간
+  return d.slice(2,4)+"/"+d.slice(5,7)+"/"+d.slice(8,10)+" "+d.slice(11,13)+":"+d.slice(14,16);
+}
+function askYesNo(msg,onYes){
+  var bg=document.createElement("div");bg.className="modalbg";
+  var box=document.createElement("div");box.className="modal";
+  var t=document.createElement("div");t.className="modaltext";t.textContent=msg;
+  var row=document.createElement("div");row.className="modalbtns";
+  var yes=document.createElement("button");yes.className="del";yes.textContent="예";
+  var no=document.createElement("button");no.className="sec";no.textContent="아니오";
+  function close(){bg.remove();}
+  yes.onclick=function(){close();onYes();};
+  no.onclick=close;
+  bg.onclick=function(e){if(e.target===bg)close();};
+  row.appendChild(no);row.appendChild(yes);
+  box.appendChild(t);box.appendChild(row);bg.appendChild(box);
+  document.body.appendChild(bg);
+  no.focus();
+}
 function mk(tag,cls,text){var e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e;}
 function acct(){
   var box=document.getElementById("acct");
@@ -392,6 +445,10 @@ function acct(){
       if(!items.length){list.appendChild(mk("div","info","아직 비어 있어요. 리플레이 화면에서 보관함에 저장해 보세요."));return;}
       items.forEach(function(it){
         var row=mk("div","libitem","");
+        row.setAttribute("role","link");row.tabIndex=0;
+        var go=function(){location.href="/replay/"+it.lang+"/"+it.id;};
+        row.onclick=go;
+        row.onkeydown=function(e){if(e.key==="Enter"&&e.target===row)go();};
         var ic=mk("div","jobbox","");
         if(it.job&&/^[a-z0-9_]+$/.test(it.job)){
           var im=document.createElement("img");
@@ -402,13 +459,19 @@ function acct(){
         }else{ic.appendChild(mk("span","qmark","?"));}
         row.appendChild(ic);
         var tx=mk("div","libtxt","");
-        var a=mk("a","libtitle",it.title||(it.lang+" · "+it.id.slice(0,8)+"…"));
-        a.href="/replay/"+it.lang+"/"+it.id;
-        tx.appendChild(a);
-        if(it.nickname)tx.appendChild(mk("div","libsub",(it.pick?it.pick+"픽 · ":"")+it.nickname));
+        tx.appendChild(mk("span","libtitle",it.title||(it.lang+" · "+it.id.slice(0,8)+"…")));
+        var parts=[];
+        if(it.nickname)parts.push((it.pick?it.pick+"픽 ":"")+it.nickname);
+        if(it.added)parts.push("불러온 일시 : "+fmtTime(it.added));
+        if(parts.length)tx.appendChild(mk("div","libsub",parts.join(" · ")));
         row.appendChild(tx);
-        var x=mk("button","sec","빼기");
-        x.onclick=function(){fetch("/api/library/"+it.lang+"/"+it.id,{method:"DELETE"}).then(function(r){if(r.ok)row.remove();});};
+        var x=mk("button","del","삭제");
+        x.onclick=function(e){
+          e.stopPropagation();
+          askYesNo("정말 삭제하시겠습니까?",function(){
+            fetch("/api/library/"+it.lang+"/"+it.id,{method:"DELETE"}).then(function(r){if(r.ok)row.remove();});
+          });
+        };
         row.appendChild(x);
         list.appendChild(row);
       });
@@ -517,7 +580,11 @@ function setupAuth(){
   var form=document.getElementById("libform");
   function paint(){lb.textContent=cur?"보관함 정보 수정":"보관함에 저장";}
   function today(){return new Date(Date.now()+9*3600000).toISOString().slice(2,10).replace(/-/g,"");}
-  function defTitle(pick){var u=USERS[pick-1];return today()+" "+((u&&u.nickname)||"?")+"의 게임";}
+  function gameDay(){
+    var m=DATA&&DATA.playedAt?/^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(DATA.playedAt):null;
+    return m?m[1].slice(2)+m[2]+m[3]:today(); // 리플레이에 게임 날짜가 있으면 그 날짜, 없으면 저장한 날
+  }
+  function defTitle(pick){var u=USERS[pick-1];return gameDay()+" "+((u&&u.nickname)||"?")+"의 게임";}
   fetch("/api/library").then(function(r){return r.json();}).then(function(d){
     (d.items||[]).forEach(function(it){if(it.lang===LANG&&it.id===ID)cur=it;});paint();
   },paint);
@@ -980,7 +1047,13 @@ async function handleApi(url) {
   const htmlText = await upstream.text();
 
   if (params.get("debug") === "1") {
-    return json(buildDebug(htmlText), 200, { "Cache-Control": "no-store" });
+    const hdrs = {};
+    for (const k of ["last-modified", "date", "etag", "age", "content-type"]) {
+      const v = upstream.headers.get(k);
+      if (v) hdrs[k] = v;
+    }
+    for (const [k, v] of upstream.headers) if (/^x-amz-meta/i.test(k)) hdrs[k] = v;
+    return json(buildDebug(htmlText, hdrs), 200, { "Cache-Control": "no-store" });
   }
 
   const parsed = parseReplayHtml(htmlText);
