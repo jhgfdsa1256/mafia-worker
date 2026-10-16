@@ -317,7 +317,7 @@ button.del:hover{background:#f0655e}
 .libitem:hover{background:rgba(255,255,255,.04)}
 .libitem .libtitle{display:block;font-size:15px;word-break:break-all}
 .libitem .libsub{font-size:12px;color:var(--muted)}
-.libitem button{width:auto;padding:6px 10px;font-size:13px}
+.libitem button,.libitem .linkbtn{width:auto;height:32px;margin:0;padding:0 12px;font-size:13px;line-height:1;display:inline-flex;align-items:center;justify-content:center;flex:none}
 .letter{background:#f3e9c9;color:#2b2416;border:1px solid #b9a56a;border-radius:10px;padding:8px 14px 12px;margin:4px 0;cursor:pointer}
 .lhead{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;font-size:12px;color:#5c4d2a;font-weight:600}
 .lhead .lfrom{flex:1;text-align:left;word-break:break-all}
