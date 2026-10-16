@@ -262,6 +262,8 @@ select{width:100%;padding:7px;font-size:14px;border-radius:6px;border:1px solid 
 .item.cont{margin-top:-5px}
 #auth .pname,#acct .pname{margin-bottom:8px}
 .wing button{margin-top:8px}
+.ghoulbox{position:absolute;right:0;bottom:0;width:40%;height:40%;background:#111;border-top:1px solid #ccc;border-left:1px solid #ccc;border-radius:4px 0 8px 0;overflow:hidden;display:flex}
+.ghoulbox img{width:100%;height:100%;object-fit:contain;border-radius:0}
 .gbtn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:10px 14px;background:#fff;color:#3c4043;border:1px solid #dadce0;border-radius:8px;font-size:15px;font-weight:500;text-decoration:none;box-shadow:0 1px 2px rgba(0,0,0,.3)}
 .gbtn{white-space:nowrap}
 #acct .gbtn{width:33.333%;min-width:190px;margin:0 auto}
@@ -459,6 +461,7 @@ var HIDE=true,ANON=true,VIEW=0,SHOW_NIGHT=false,SHOW_GHOST=false;
 var VOTE_RE=/(\\d+\\s*님이\\s*\\d+\\s*님에게\\s*투표)|((찬성|반대)하였)/;
 var VOTE_LINE=/^\\s*(\\d+)\\s*님이\\s*(\\d+)\\s*님에게\\s*투표하였습니다/;
 var ANN={},OPEN=null;
+var GHOUL_JOB=null; // 도굴꾼이 첫날 밤 희생자에게서 얻은 직업
 var KNOWN={CHAT:1,MAFIACHAT:1,MEGAPHONE:1,GHOSTCHAT:1,WILL:1};
 // 추리중 아이콘 (숨김 상태이거나 직업을 모를 때 표시)
 var UNKNOWN_ICON="https://raw.githubusercontent.com/LiQuiDsKR/Mafia42ImageResource/refs/heads/main/images/StrategyThumbnail/08%20%EC%B6%94%EB%A6%AC%20%EC%A4%91.webp";
@@ -595,8 +598,37 @@ function makeAvatar(u,extra){
     img.src="https://mafia42.com/chat/jobs/jobthumb_"+job+".png";
     img.onerror=function(){img.remove();box.appendChild(el("span","jobfb",job));};
     box.appendChild(img);
+    if(job==="ghoul"&&GHOUL_JOB&&/^[a-z0-9_]+$/.test(GHOUL_JOB)){
+      var gb=el("div","ghoulbox");
+      var gi=document.createElement("img");
+      gi.alt=GHOUL_JOB;
+      gi.src="https://mafia42.com/chat/jobs/jobthumb_"+GHOUL_JOB+".png";
+      gi.onerror=function(){gi.remove();};
+      gb.appendChild(gi);
+      box.appendChild(gb);
+    }
   }
   return box;
+}
+
+// 첫날 밤 희생자의 직업을 도굴꾼이 가져가는 것으로 보고 계산 (첫 "날이 밝았습니다" 전에 나온 사망 메시지)
+function calcGhoul(){
+  GHOUL_JOB=null;
+  var gh=USERS.filter(function(u){return u.job==="ghoul";})[0];
+  if(!gh||!DATA)return;
+  for(var i=0;i<DATA.logs.length;i++){
+    var l=DATA.logs[i];
+    if(l.type!=="system")continue;
+    if(/^\\s*날이 밝았습니다/.test(l.message))return;
+    var m=/^\\s*(\\d+)\\s*님이\\s*(?:\\S*당하였습니다|사망하였습니다|죽었습니다)/.exec(l.message);
+    if(m){
+      var n=Number(m[1]);
+      if(n===gh.number)return;
+      var v=USERS[n-1];
+      GHOUL_JOB=(v&&v.job)||null;
+      return;
+    }
+  }
 }
 
 function renderUsers(){
@@ -864,6 +896,7 @@ fetch("/api/me").then(function(r){return r.json();}).catch(function(){return {};
   if(d.error){log.appendChild(el("div","sys",d.error));return;}
   DATA=d;USERS=d.users||[];
   USERS.forEach(function(u){if(u.nickname&&!NICK2USER[u.nickname])NICK2USER[u.nickname]=u;});
+  calcGhoul();
 
   var hide=document.getElementById("hide");
   hide.checked=true;HIDE=true;
