@@ -1,4 +1,4 @@
-name = "mfa42-worker-beta"
+name = "mfa42-beta"
 main = "src/index.js"
 compatibility_date = "2026-10-01"
 compatibility_flags = ["nodejs_compat"]
