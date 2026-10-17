@@ -8,3 +8,4 @@ compatibility_flags = ["nodejs_compat"]
 binding = "DB"
 database_name = "mafia42"
 database_id = "9af7a1fd-ca45-420e-b0c8-b5e3842a2c23"
+#주석
