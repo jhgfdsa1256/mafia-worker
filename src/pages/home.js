@@ -72,15 +72,6 @@ function acct(){
         var go=function(){location.href="/replay/"+it.lang+"/"+it.id;};
         row.onclick=go;
         row.onkeydown=function(e){if(e.key==="Enter"&&e.target===row)go();};
-        var ic=mk("div","jobbox","");
-        if(it.job&&/^[a-z0-9_]+$/.test(it.job)){
-          var im=document.createElement("img");
-          im.alt=it.job;
-          im.src="https://mafia42.com/chat/jobs/jobthumb_"+it.job+".png";
-          im.onerror=function(){im.remove();ic.appendChild(mk("span","qmark","?"));};
-          ic.appendChild(im);
-        }else{ic.appendChild(mk("span","qmark","?"));}
-        row.appendChild(ic);
         var tx=mk("div","libtxt","");
         tx.appendChild(mk("span","libtitle",it.title||(it.lang+" · "+it.id.slice(0,8)+"…")));
         var parts=[];
