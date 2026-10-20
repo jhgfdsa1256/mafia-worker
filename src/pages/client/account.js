@@ -56,10 +56,10 @@ export const clientAccount = `function setupAuth(){
     var ok=el("button",null,"저장");
     ok.onclick=function(){
       var n=Number(sel.value),u=USERS[n-1]||{};
-      var body={title:ti.value.trim()||defTitle(n),pick:n,nickname:u.nickname||null,job:u.job||null};
+      var body={title:ti.value.trim()||defTitle(n),pick:n,nickname:u.nickname||null};
       ok.disabled=true;st.textContent="";
       fetch("/api/library/"+LANG+"/"+ID,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(function(r){
-        if(r.ok){cur={lang:LANG,id:ID,title:body.title,pick:n,nickname:body.nickname,job:body.job};paint();form.hidden=true;}
+        if(r.ok){cur={lang:LANG,id:ID,title:body.title,pick:n,nickname:body.nickname};paint();form.hidden=true;}
         else{ok.disabled=false;st.textContent="저장하지 못했어요. 다시 시도해 주세요.";}
       },function(){ok.disabled=false;st.textContent="저장하지 못했어요. 다시 시도해 주세요.";});
     };
