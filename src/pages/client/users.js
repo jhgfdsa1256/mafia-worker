@@ -51,12 +51,25 @@ function calcGhoul(){
 function renderUsers(){
   var box=document.getElementById("users");box.textContent="";
   USERS.forEach(function(u){
-    var row=el("div","player");
+    var row=el("div","player pick"+(MEMO_SEL===u.number?" sel":""));
     var icon=makeAvatar(u,"");
     icon.appendChild(el("span","badge",String(u.number)));
     row.appendChild(icon);
-    row.appendChild(el("div","pname",u.nickname||"?"));
+    var nm=el("div","pname",u.nickname||"?");
+    row.appendChild(nm);
+    var mc=el("span","mcount","");
+    mc.id="mc"+u.number;
+    var c=memoCount(u.number);if(c)mc.textContent="후보 "+c;
+    row.appendChild(mc);
+    row.onclick=function(){
+      MEMO_SEL=(MEMO_SEL===u.number)?0:u.number;
+      renderUsers();
+      // 메모장이 열리면 그 사람이 오른쪽 날개(메모장) 맨 위에 오도록 스크롤
+      var cur=document.querySelector(".player.sel"),wing=document.querySelector(".wing.right");
+      if(cur&&wing)wing.scrollTop+=cur.getBoundingClientRect().top-wing.getBoundingClientRect().top-8;
+    };
     box.appendChild(row);
+    if(MEMO_SEL===u.number)box.appendChild(renderMemoBox(u.number));
   });
 }
 

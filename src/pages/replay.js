@@ -3,6 +3,7 @@ import { HEAD } from "./style.js";
 import { clientCore } from "./client/core.js";
 import { clientStorage } from "./client/storage.js";
 import { clientAccount } from "./client/account.js";
+import { clientMemo } from "./client/memo.js";
 import { clientUsers } from "./client/users.js";
 import { clientAnnotate } from "./client/annotate.js";
 import { clientLog } from "./client/log.js";
@@ -45,6 +46,6 @@ export function replayPage(lang, id) {
 <button id="sheetbtn" class="sheetbtn" aria-label="메모장 열기" aria-expanded="false">▲</button>
 <script>
 ${clientCore(lang, id)}
-${clientStorage}${clientAccount}${clientUsers}${clientAnnotate}${clientLog}${clientTools}${clientInit}</script></body></html>`
+${clientStorage}${clientAccount}${clientMemo}${clientUsers}${clientAnnotate}${clientLog}${clientTools}${clientInit}</script></body></html>`
   );
 }
