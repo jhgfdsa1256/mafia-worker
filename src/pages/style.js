@@ -67,19 +67,23 @@ select{width:100%;padding:7px;font-size:14px;border-radius:6px;border:1px solid 
 .player.sel .pname{font-weight:700}
 .mcount{margin-left:auto;font-size:11px;color:#9fd6a8}
 .memo{width:100%;max-width:560px;max-height:92vh;display:flex;flex-direction:column;background:#cdb67b;color:#2e2410;box-shadow:0 10px 40px rgba(0,0,0,.5)}
-.memotitle{display:flex;align-items:center;justify-content:space-between;padding:9px 14px;font-size:14px;font-weight:700;background:#b89f5e;color:#2e2410;flex:none}
+.memotitle{display:flex;align-items:center;justify-content:space-between;padding:9px 14px;font-size:17px;font-weight:700;background:#b89f5e;color:#2e2410;flex:none}
 .memoclose{width:auto;flex:none;margin:0;padding:0 8px;height:26px;background:transparent;color:#2e2410;font-size:18px;line-height:1;border:0;cursor:pointer}
 .memoscroll{flex:1;min-height:0;max-height:70vh;overflow-y:auto;padding:8px 18px 10px;-webkit-overflow-scrolling:touch}
-.memosec{font-size:13px;font-weight:700;margin:10px 4px 6px}
+.memosec{font-size:16px;font-weight:700;margin:10px 4px 6px}
 .memorow{display:grid;grid-template-columns:repeat(5,1fr);gap:6px 20px;margin-bottom:6px}
 .memocell{display:flex;flex-direction:column;align-items:center;cursor:pointer;min-width:0}
 .micon{position:relative;width:42px;height:42px;background:transparent;display:flex;align-items:center;justify-content:center}
 .micon img{width:100%;height:100%;object-fit:contain;display:block}
 .mfb{font-size:14px;font-weight:800;color:#ddd}
-.mlabel{font-size:10px;line-height:1.15;text-align:center;margin-top:2px;word-break:keep-all;min-height:23px}
+.mlabel{font-size:12px;line-height:1.15;text-align:center;margin-top:2px;word-break:keep-all;min-height:28px}
 .memocell.on .micon{outline:2px solid #2e2410;outline-offset:1px}
 .memocell.on .mlabel{font-weight:800}
-.memohint{padding:6px 14px 10px;font-size:11px;color:#5b4a22;flex:none}
+.memo .tm{color:#b3150f}
+.memo .tc{color:#1a3fa8}
+.memo .tn{color:#000}
+@media (max-width:600px){.memoscroll{padding:8px 10px 10px}.memorow{gap:6px 6px}.mlabel{font-size:11.5px;letter-spacing:-.5px}}
+.memohint{padding:6px 14px 10px;font-size:13px;color:#5b4a22;flex:none}
 .libform{margin-top:8px;padding:10px;border:1px solid var(--line);border-radius:8px;background:#2f2f2f}
 .libform .info{font-size:12px;color:var(--muted);margin:6px 0 4px}
 .libform button{margin-top:8px}
