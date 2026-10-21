@@ -12,6 +12,7 @@ export const HOME_PAGE =
 <div class="err" id="err"></div>
 </div>
 <div class="card" id="acct"><div class="info">확인 중...</div></div>
+<p class="credit">리플레이 조회 방식은 대현닷컴 오픈소스(<a href="https://github.com/daehyuh/daehyun-backend" target="_blank" rel="noopener noreferrer">github.com/daehyuh/daehyun-backend</a>)의 구현을 참고했습니다.</p>
 </div>
 <script>
 var GOOGLE_G=${JSON.stringify(GOOGLE_G)},LOGIN_NOTE=${JSON.stringify(LOGIN_NOTE)};
