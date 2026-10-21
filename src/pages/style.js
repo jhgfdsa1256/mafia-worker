@@ -37,6 +37,7 @@ button.sec{background:#4d4d4d}
 .opt input[type=checkbox]{width:18px;height:18px;margin:0}
 .opt.col{flex-direction:column;align-items:stretch;gap:4px}
 select{width:100%;padding:7px;font-size:14px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+.credit{font-size:12px;color:var(--muted);line-height:1.5;margin:18px 0 0;text-align:center}
 .hint{font-size:12px;color:var(--muted);line-height:1.4;margin:4px 0 0}
 
 .player{display:flex;align-items:center;gap:12px;padding:7px 0}
