@@ -1,3 +1,5 @@
+// 출처: 리플레이를 HTTP GET 한 번으로 가져와 HTML에서 읽는 방식과 링크 경로 해석은
+// 대현닷컴 오픈소스(https://github.com/daehyuh/daehyun-backend, TribunalReplayScraper)를 참고했습니다.
 // 마피아42 리플레이 HTML을 읽어서 {users, winningTeam, playedAt, logs}로 바꾸는 부분
 import * as cheerio from "cheerio";
 
