@@ -80,14 +80,12 @@ function renderUsers(){
     if(HIDE&&MEMO[u.number])mc.textContent=MEMO[u.number];
     row.appendChild(mc);
     row.onclick=function(){
-      MEMO_SEL=(MEMO_SEL===u.number)?0:u.number;
+      if(MEMO_SEL===u.number){closeMemo();return;}
+      MEMO_SEL=u.number;
       renderUsers();
-      // 메모장이 열리면 그 사람이 오른쪽 날개(메모장) 맨 위에 오도록 스크롤
-      var cur=document.querySelector(".player.sel"),wing=document.querySelector(".wing.right");
-      if(cur&&wing)wing.scrollTop+=cur.getBoundingClientRect().top-wing.getBoundingClientRect().top-8;
+      openMemo(u.number);
     };
     box.appendChild(row);
-    if(MEMO_SEL===u.number)box.appendChild(renderMemoBox(u.number));
   });
 }
 
