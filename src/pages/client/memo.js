@@ -6,7 +6,12 @@ var MEMO_SECTIONS=${JSON.stringify(JOB_SECTIONS)};
 var MEMO={};      // MEMO[참가자번호] = 추리한 직업 이름
 var MEMO_SEL=0;
 var JOBCODE={};
-MEMO_SECTIONS.forEach(function(sec){sec.rows.forEach(function(r){r.forEach(function(j){JOBCODE[j[0]]=j[1];});});});
+// 팀 구분: 마피아·악인과 '마피아 팀' 칸의 직업은 마피아팀(빨강), 추리중을 뺀 나머지는 시민팀(파랑)
+var TEAM={"마피아":"tm","악인":"tm"};
+MEMO_SECTIONS.forEach(function(sec){sec.rows.forEach(function(r){r.forEach(function(j){
+  JOBCODE[j[0]]=j[1];
+  if(!TEAM[j[0]])TEAM[j[0]]=(sec.title==="마피아 팀")?"tm":(j[1]?"tc":"tn");
+});});});
 function memoKey(){return "m42memo2:"+LANG+":"+ID;}
 function loadMemo(){
   MEMO={};
@@ -36,12 +41,12 @@ function renderMemoBox(n){
   var sc=el("div","memoscroll");
   var cells=[];
   MEMO_SECTIONS.forEach(function(sec){
-    if(sec.title)sc.appendChild(el("div","memosec","<"+sec.title+">"));
+    if(sec.title)sc.appendChild(el("div","memosec "+(sec.title==="마피아 팀"?"tm":"tc"),"<"+sec.title+">"));
     sec.rows.forEach(function(r){
       var row=el("div","memorow");
       r.forEach(function(j){
         var name=j[0],code=j[1];
-        var cell=el("div","memocell"+(MEMO[n]===name?" on":""));
+        var cell=el("div","memocell "+TEAM[name]+(MEMO[n]===name?" on":""));
         var ic=el("div","micon");
         var img=document.createElement("img");
         img.alt=name;
@@ -55,7 +60,7 @@ function renderMemoBox(n){
           e.stopPropagation();
           // 같은 직업을 다시 누르거나 '추리중'을 누르면 해제
           if(MEMO[n]===name||!code)delete MEMO[n];else MEMO[n]=name;
-          cells.forEach(function(c){c[0].className="memocell"+(MEMO[n]===c[1]?" on":"");});
+          cells.forEach(function(c){c[0].className="memocell "+TEAM[c[1]]+(MEMO[n]===c[1]?" on":"");});
           saveMemo();
           refreshAvatars(n);
           updateMemoLabel(n);
