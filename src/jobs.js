@@ -23,7 +23,7 @@ export const JOB_SECTIONS = [
       [["군인", "soldier"], ["정치인", "politician"], ["영매", "shaman"], ["연인", "couple"], ["기자", "reporter"]],
       [["건달", "gangster"], ["사립탐정", "detective"], ["도굴꾼", "ghoul"], ["테러리스트", "terrorist"], ["성직자", "priest"]],
       [["예언자", "prophet"], ["판사", "judge"], ["간호사", "nurse"], ["마술사", "magician"], ["해커", "hacker"]],
-      [["심리학자", "mentalist"], ["용병공무원", "mercenary"], ["비밀결사", "cabal"], ["파파라치", "paparazzi"]],
+      [["심리학자", "mentalist"], ["용병", "mercenary"], ["공무원", null], ["비밀결사", "cabal"], ["파파라치", "paparazzi"]],
       [["최면술사", "hypnotist"], ["점쟁이", "fortuneteller"]],
     ],
   },
