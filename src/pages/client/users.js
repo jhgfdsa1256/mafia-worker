@@ -1,9 +1,17 @@
 // 화면 JS ④ 직업 아이콘, 도굴 표시, 참가자 목록
 export const clientUsers = `// ---- 직업 아이콘 (숨김 상태이거나 직업을 모르면 추리중 이미지) ----
-function makeAvatar(u,extra){
-  var box=el("div","jobbox"+(extra?" "+extra:""));
+function fillAvatar(box,u){
+  // 번호표(badge)만 남기고 나머지를 지운 뒤 다시 채움
+  Array.prototype.slice.call(box.children).forEach(function(c){if(c.className!=="badge")c.remove();});
   var job=u&&u.job;
-  if(HIDE||!job||!/^[a-z0-9_]+$/.test(job)){
+  var showCode=null; // 보여줄 직업 코드 (null이면 추리중 이미지)
+  var real=false;
+  if(HIDE){
+    showCode=(u&&guessCode(u.number))||null; // 내가 메모장에서 고른 추리 직업
+  }else if(job&&/^[a-z0-9_]+$/.test(job)){
+    showCode=job;real=true;               // 숨기기를 끄면 진짜 직업
+  }
+  if(!showCode){
     var q=document.createElement("img");
     q.alt="?";
     q.src=UNKNOWN_ICON;
@@ -11,11 +19,11 @@ function makeAvatar(u,extra){
     box.appendChild(q);
   }else{
     var img=document.createElement("img");
-    img.alt=job;
-    img.src="https://mafia42.com/chat/jobs/jobthumb_"+job+".png";
-    img.onerror=function(){img.remove();box.appendChild(el("span","jobfb",job));};
+    img.alt=showCode;
+    img.src="https://mafia42.com/chat/jobs/jobthumb_"+showCode+".png";
+    img.onerror=function(){img.remove();box.appendChild(el("span","jobfb",showCode));};
     box.appendChild(img);
-    if(job==="ghoul"&&GHOUL_JOB&&/^[a-z0-9_]+$/.test(GHOUL_JOB)){
+    if(real&&job==="ghoul"&&GHOUL_JOB&&/^[a-z0-9_]+$/.test(GHOUL_JOB)){
       var gb=el("div","ghoulbox");
       var gi=document.createElement("img");
       gi.alt=GHOUL_JOB;
@@ -25,7 +33,17 @@ function makeAvatar(u,extra){
       box.appendChild(gb);
     }
   }
+}
+function makeAvatar(u,extra){
+  var box=el("div","jobbox"+(extra?" "+extra:""));
+  if(u)box.setAttribute("data-n",String(u.number));
+  fillAvatar(box,u);
   return box;
+}
+// 메모장에서 직업을 바꾸면 화면에 있는 그 참가자의 아이콘을 전부 제자리에서 갱신
+function refreshAvatars(n){
+  var list=document.querySelectorAll('.jobbox[data-n="'+n+'"]');
+  for(var i=0;i<list.length;i++)fillAvatar(list[i],USERS[n-1]);
 }
 
 // 첫날 밤 희생자의 직업을 도굴꾼이 가져가는 것으로 보고 계산 (첫 "날이 밝았습니다" 전에 나온 사망 메시지)
@@ -59,7 +77,7 @@ function renderUsers(){
     row.appendChild(nm);
     var mc=el("span","mcount","");
     mc.id="mc"+u.number;
-    var c=memoCount(u.number);if(c)mc.textContent="후보 "+c;
+    if(HIDE&&MEMO[u.number])mc.textContent=MEMO[u.number];
     row.appendChild(mc);
     row.onclick=function(){
       MEMO_SEL=(MEMO_SEL===u.number)?0:u.number;

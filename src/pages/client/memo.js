@@ -3,25 +3,40 @@ import { JOB_SECTIONS } from "../../jobs.js";
 // 화면 JS ⑨ 직업 메모장: 참가자 아이콘을 누르면 그 사람 아래에 직업 후보 메모가 열림
 export const clientMemo = `
 var MEMO_SECTIONS=${JSON.stringify(JOB_SECTIONS)};
-var MEMO={},MEMO_SEL=0;
-function memoKey(){return "m42memo:"+LANG+":"+ID;}
+var MEMO={};      // MEMO[참가자번호] = 추리한 직업 이름
+var MEMO_SEL=0;
+var JOBCODE={};
+MEMO_SECTIONS.forEach(function(sec){sec.rows.forEach(function(r){r.forEach(function(j){JOBCODE[j[0]]=j[1];});});});
+function memoKey(){return "m42memo2:"+LANG+":"+ID;}
 function loadMemo(){
-  try{var s=localStorage.getItem(memoKey());var o=s?JSON.parse(s):{};MEMO=(o&&typeof o==="object")?o:{};}
-  catch(e){MEMO={};}
+  MEMO={};
+  try{
+    var s=localStorage.getItem(memoKey());var o=s?JSON.parse(s):{};
+    if(o&&typeof o==="object"){for(var k in o){if(typeof o[k]==="string"&&JOBCODE[o[k]])MEMO[k]=o[k];}}
+  }catch(e){}
 }
 function saveMemo(){try{localStorage.setItem(memoKey(),JSON.stringify(MEMO));}catch(e){}}
-function memoState(n,name){return (MEMO[n]&&MEMO[n][name])||0;}
+// 숨김 상태에서 이 참가자에게 보여줄 추리 직업 코드 (없으면 null)
+function guessCode(n){
+  var name=MEMO[n];
+  return (name&&JOBCODE[name])?JOBCODE[name]:null;
+}
+function updateMemoLabel(n){
+  var t=document.getElementById("mc"+n);
+  if(t)t.textContent=(HIDE&&MEMO[n])?MEMO[n]:"";
+}
 function renderMemoBox(n){
   var box=el("div","memo");
   box.appendChild(el("div","memotitle","메모장 · "+n+"픽 직업 추리"));
   var sc=el("div","memoscroll");
+  var cells=[];
   MEMO_SECTIONS.forEach(function(sec){
     if(sec.title)sc.appendChild(el("div","memosec","<"+sec.title+">"));
     sec.rows.forEach(function(r){
       var row=el("div","memorow");
       r.forEach(function(j){
         var name=j[0],code=j[1];
-        var cell=el("div","memocell s"+memoState(n,name));
+        var cell=el("div","memocell"+(MEMO[n]===name?" on":""));
         var ic=el("div","micon");
         var img=document.createElement("img");
         img.alt=name;
@@ -30,14 +45,15 @@ function renderMemoBox(n){
         ic.appendChild(img);
         cell.appendChild(ic);
         cell.appendChild(el("div","mlabel",name));
+        cells.push([cell,name]);
         cell.onclick=function(e){
           e.stopPropagation();
-          var v=(memoState(n,name)+1)%3; // 없음 → 후보 → 제외 → 없음
-          if(!MEMO[n])MEMO[n]={};
-          if(v)MEMO[n][name]=v;else delete MEMO[n][name];
-          cell.className="memocell s"+v;
+          // 같은 직업을 다시 누르거나 '추리중'을 누르면 해제
+          if(MEMO[n]===name||!code)delete MEMO[n];else MEMO[n]=name;
+          cells.forEach(function(c){c[0].className="memocell"+(MEMO[n]===c[1]?" on":"");});
           saveMemo();
-          updateMemoCount(n);
+          refreshAvatars(n);
+          updateMemoLabel(n);
         };
         row.appendChild(cell);
       });
@@ -45,17 +61,8 @@ function renderMemoBox(n){
     });
   });
   box.appendChild(sc);
-  box.appendChild(el("div","memohint","누르면 후보(초록) → 제외(빨강) → 해제 순서로 바뀌어요."));
+  box.appendChild(el("div","memohint","직업을 누르면 이 참가자의 아이콘이 그 직업으로 바뀌어요. 다시 누르면 해제돼요. '직업 숨기기'를 끄면 진짜 직업이 보여요."));
   return box;
-}
-function memoCount(n){
-  var o=MEMO[n]||{},c=0;
-  for(var k in o){if(o[k]===1)c++;}
-  return c;
-}
-function updateMemoCount(n){
-  var t=document.getElementById("mc"+n);
-  if(t){var c=memoCount(n);t.textContent=c?"후보 "+c:"";}
 }
 loadMemo();
 `;

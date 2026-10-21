@@ -72,15 +72,12 @@ select{width:100%;padding:7px;font-size:14px;border-radius:6px;border:1px solid 
 .memosec{font-size:12px;font-weight:700;margin:8px 4px 4px}
 .memorow{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:4px}
 .memocell{display:flex;flex-direction:column;align-items:center;cursor:pointer;min-width:0}
-.micon{position:relative;width:34px;height:34px;background:#222;display:flex;align-items:center;justify-content:center}
+.micon{position:relative;width:34px;height:34px;background:transparent;display:flex;align-items:center;justify-content:center}
 .micon img{width:100%;height:100%;object-fit:contain;display:block}
 .mfb{font-size:14px;font-weight:800;color:#ddd}
 .mlabel{font-size:10px;line-height:1.15;text-align:center;margin-top:2px;word-break:keep-all;min-height:23px}
-.memocell.s1 .micon{outline:3px solid #2e9d4f;outline-offset:-1px}
-.memocell.s1 .mlabel{color:#1b6b34;font-weight:700}
-.memocell.s2 .micon{opacity:.4}
-.memocell.s2 .micon::after{content:"✕";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#e5322d;font-size:26px;font-weight:800;opacity:2}
-.memocell.s2 .mlabel{text-decoration:line-through;opacity:.6}
+.memocell.on .micon{outline:2px solid #2e2410;outline-offset:1px}
+.memocell.on .mlabel{font-weight:800}
 .memohint{padding:0 10px 8px;font-size:10px;color:#5b4a22}
 .libform{margin-top:8px;padding:10px;border:1px solid var(--line);border-radius:8px;background:#2f2f2f}
 .libform .info{font-size:12px;color:var(--muted);margin:6px 0 4px}
