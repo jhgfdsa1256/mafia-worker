@@ -10,7 +10,7 @@ var JOBCODE={};
 var TEAM={"마피아":"tm","악인":"tm"};
 MEMO_SECTIONS.forEach(function(sec){sec.rows.forEach(function(r){r.forEach(function(j){
   JOBCODE[j[0]]=j[1];
-  if(!TEAM[j[0]])TEAM[j[0]]=(sec.title==="마피아 팀")?"tm":(j[1]?"tc":"tn");
+  if(!TEAM[j[0]])TEAM[j[0]]=(sec.title==="마피아 팀")?"tm":(j[0]==="추리중"?"tn":"tc");
 });});});
 function memoKey(){return "m42memo2:"+LANG+":"+ID;}
 function loadMemo(){
@@ -59,7 +59,7 @@ function renderMemoBox(n){
         cell.onclick=function(e){
           e.stopPropagation();
           // 같은 직업을 다시 누르거나 '추리중'을 누르면 해제
-          if(MEMO[n]===name||!code)delete MEMO[n];else MEMO[n]=name;
+          if(MEMO[n]===name||name==="추리중")delete MEMO[n];else MEMO[n]=name;
           cells.forEach(function(c){c[0].className="memocell "+TEAM[c[1]]+(MEMO[n]===c[1]?" on":"");});
           saveMemo();
           refreshAvatars(n);
