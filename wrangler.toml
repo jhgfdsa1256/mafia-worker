@@ -1,10 +1,10 @@
-name = "mfa42-beta"
+name = "mfa42-worker"
 main = "src/index.js"
 compatibility_date = "2026-10-01"
 compatibility_flags = ["nodejs_compat"]
 
-# 로그인용 D1 데이터베이스: Cloudflare에서 DB를 만든 뒤 아래 주석을 풀고 database_id를 채우세요.
+# 로그인용 D1 데이터베이스: Cloudflare에서 DB를 만든 뒤 아래 주석을 풀고 database_id를 채우세요..
 [[d1_databases]]
 binding = "DB"
-database_name = "mafia42-beta"
-database_id = "4982ab21-34ab-42f2-8a1e-2906bf5785ce"
+database_name = "mafia42"
+database_id = "9af7a1fd-ca45-420e-b0c8-b5e3842a2c23"
