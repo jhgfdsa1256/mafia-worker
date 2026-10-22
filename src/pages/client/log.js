@@ -14,7 +14,7 @@ function nameWithPick(n){
   return (n||"?")+(u?" · "+u.number+"픽":"");
 }
 function isVisible(l){
-  if(l.type==="letter")return true;
+  if(l.type==="letter")return SHOW_NIGHT; // 밀서도 밤챗으로 취급
   if(l.type==="system")return !(ANON&&VOTE_RE.test(l.message));
   var ch=chOf(l);
   if(ch==="GHOSTCHAT")return SHOW_GHOST;
