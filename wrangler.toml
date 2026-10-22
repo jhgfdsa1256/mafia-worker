@@ -1,4 +1,4 @@
-name = "mfa42-worker"
+name = "mfa42-beta"
 main = "src/index.js"
 compatibility_date = "2026-10-01"
 compatibility_flags = ["nodejs_compat"]
@@ -7,5 +7,5 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "mafia42"
-database_id = "9af7a1fd-ca45-420e-b0c8-b5e3842a2c23"
+database_id = "4982ab21-34ab-42f2-8a1e-2906bf5785ce"
 #주석
